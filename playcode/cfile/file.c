@@ -136,34 +136,53 @@
 // }
 
 
+// #include <stdio.h>
+// #include <string.h>
+// #include <unistd.h>
+// #include <sys/types.h>
+// #include <sys/stat.h>
+// #include <fcntl.h>
+// int main()
+// {
+//     int fd = open("log.txt", O_RDONLY);
+//     if(fd < 0)
+//     {
+//         perror("open");
+//         return 1;
+//     }
+
+//     // 读取文件中的信息
+//     char buffer[1024];
+//     // 这里sizeof - 1是为了留位置给我们自己添加的'\0'腾出位置，因为文件中是不含'\0'的，要多预留一个位置出来
+//     ssize_t num = read(fd, buffer, sizeof(buffer) - 1);
+
+//     // 大于0表示读取成功，并将buffer的末尾设为'\0'，因为系统接口是不为我们添加'\0'的
+//     if(num != 0)
+//     {
+//         buffer[num] = '\0';
+//         printf("%s", buffer);
+//     }
+
+//     // 关闭文件
+//     close(fd);
+//     return 0;
+// }
+
 #include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 int main()
 {
-    int fd = open("log.txt", O_RDONLY);
-    if(fd < 0)
-    {
-        perror("open");
-        return 1;
-    }
-
-    // 读取文件中的信息
-    char buffer[1024];
-    // 这里sizeof - 1是为了留位置给我们自己添加的'\0'腾出位置，因为文件中是不含'\0'的，要多预留一个位置出来
-    ssize_t num = read(fd, buffer, sizeof(buffer) - 1);
-
-    // 大于0表示读取成功，并将buffer的末尾设为'\0'，因为系统接口是不为我们添加'\0'的
-    if(num != 0)
-    {
-        buffer[num] = '\0';
-        printf("%s", buffer);
-    }
-
-    // 关闭文件
-    close(fd);
+    // close(0); // 关闭stdin
+    // close(2); // 关闭stderr
+    close(1); // 关闭stdout
+    
+    int fd1 = open("log1.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    int fd2 = open("log2.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    
+    printf("fd1：%d\n", fd1);
+    printf("fd2：%d\n", fd2);
     return 0;
 }
