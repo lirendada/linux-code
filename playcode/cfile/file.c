@@ -168,21 +168,53 @@
 //     return 0;
 // }
 
+// #include <stdio.h>
+// #include <sys/types.h>
+// #include <sys/stat.h>
+// #include <fcntl.h>
+// #include <unistd.h>
+// #include <string.h>
+// int main()
+// {
+//     int fd = open("log.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+
+//     // 调用dup2拷贝文件描述符
+//     int newfd = dup2(fd, stdout->_fileno);
+//     if(newfd != -1)
+//     {
+//         // 使用fprintf打印看看效果
+//         fprintf(stdout, "fd:%d\n", fd);
+        
+//         // const char* str = "lirendada";
+//         // write(fd, str, strlen(str));
+//     }
+    
+//     close(fd);
+//     return 0;
+// }
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 int main()
 {
-    // close(0); // 关闭stdin
-    // close(2); // 关闭stderr
-    close(1); // 关闭stdout
+    int fd = open("log.txt", O_RDONLY);
+
+    dup2(fd, stdin->_fileno);
+
+    // 将本来要从键盘读取的过程转化为从log.txt中读取
+    char line[64];
+    while(1)
+    {
+        // 从stdin对应的文件描述符指向的文件读取
+        if((fgets(line, sizeof(line), stdin)) == NULL)
+            break;
+        printf("> %s", line);
+    }
     
-    int fd1 = open("log1.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    int fd2 = open("log2.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    
-    printf("fd1：%d\n", fd1);
-    printf("fd2：%d\n", fd2);
+    close(fd);
     return 0;
 }
