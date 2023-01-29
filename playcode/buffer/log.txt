@@ -1,0 +1,7 @@
+hello write
+hello lirendada:print
+hello lirendada:fprint
+hello lirendada:fputs
+hello lirendada:print
+hello lirendada:fprint
+hello lirendada:fputs
