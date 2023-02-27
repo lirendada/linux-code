@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/types.h>
 #include <sys/shm.h>
@@ -50,7 +51,31 @@ int getShm(key_t k)
 // 为server提供创建共享内存标识符的函数
 int createShm(key_t k)
 {
-    return getShmHelper(k, IPC_CREAT | IPC_EXCL);
+    // 注意这里是创建shm，所以必须也得给共享内存带上访问权限
+    return getShmHelper(k, IPC_CREAT | IPC_EXCL | 0600);
+}
+
+// 关联共享内存
+void* attachShm(int shmid)
+{
+    // 注意当前是64位机，所以指针大小为8字节，所以不能强转为int
+    void* start = shmat(shmid, nullptr, 0);
+    if((long long)start == -1L)
+    {
+        cerr << errno << " : " << strerror(errno) << endl;
+        exit(4);
+    }
+    return start;
+}
+
+// 去关联
+void detachShm(const void* shmaddr)
+{
+    if(shmdt(shmaddr) == -1)
+    {
+        cerr << errno << " : " << strerror(errno) << endl;
+        exit(5);
+    }
 }
 
 // 删除共享内存
