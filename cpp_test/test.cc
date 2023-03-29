@@ -76,32 +76,75 @@
 // }
 
 
+// #include <iostream>
+// #include <vector>
+// #include <map>
+// using namespace std;
+
+// int main()
+// { 
+//     // 内置类型变量
+//     int x1 = {10};
+//     int x2{10};
+//     int x3 = 1+2;
+//     int x4 = {1+2};
+//     int x5{1+2};
+//     // 数组
+//     int arr1[5] = {1,2,3,4,5};
+//     int arr2[]{1,2,3,4,5};
+
+//     // 动态数组，在C++98中不支持
+//     int* arr3 = new int[5]{1,2,3,4,5};
+
+//     // 标准容器
+//     vector<int> v1{1,2,3,4,5};
+//     vector<int> v2 = {1,2,3,4,5};
+    
+//     map<int, int> m1{{1,1}, {2,2},{3,3},{4,4}};
+//     map<int, int> m2 = {{1,1}, {2,2},{3,3},{4,4}};
+    
+//     return 0;
+// }
+
 #include <iostream>
-#include <vector>
-#include <map>
+#include <memory>
 using namespace std;
 
+
+template<class T>
+struct DeleteArray
+{
+	void operator()(const T* ptr)
+	{
+		delete[] ptr;
+		cout << "delete[] " << ptr << endl;
+	}
+};
+
 int main()
-{ 
-    // 内置类型变量
-    int x1 = {10};
-    int x2{10};
-    int x3 = 1+2;
-    int x4 = {1+2};
-    int x5{1+2};
-    // 数组
-    int arr1[5] = {1,2,3,4,5};
-    int arr2[]{1,2,3,4,5};
+{
+	//shared_ptr<int> sp1(new int[10]); // 不一定会报错，因为是内置类型
+	//shared_ptr<string> sp2(new string[10]); // 肯定会报错，因为是自定义类型
 
-    // 动态数组，在C++98中不支持
-    int* arr3 = new int[5]{1,2,3,4,5};
+	// 注意下述传递的第二个参数是函数对象而不是类型，所以需要加()
+	shared_ptr<int> sp1(new int[10], DeleteArray<int>());
+	shared_ptr<string> sp2(new string[10], DeleteArray<string>());
 
-    // 标准容器
-    vector<int> v1{1,2,3,4,5};
-    vector<int> v2 = {1,2,3,4,5};
-    
-    map<int, int> m1{{1,1}, {2,2},{3,3},{4,4}};
-    map<int, int> m2 = {{1,1}, {2,2},{3,3},{4,4}};
-    
-    return 0;
+	// 还可用使用lambda表达式
+	shared_ptr<string> sp3(new string[10], [](string* ptr) 
+		{
+			delete[] ptr;
+			cout << "lambda delete[] " << ptr << endl;
+		});
+
+	// 还可以是文件类型
+	shared_ptr<FILE> sp4(fopen("test.txt", "w"), [](FILE* ptr)
+		{
+			fclose(ptr);
+			cout << "file delete[] " << ptr << endl;
+		}); 
+
+	// 使用库中的默认删除器
+	// shared_ptr<string> sp3(new string[10], default_delete<string>());
+	return 0;
 }
