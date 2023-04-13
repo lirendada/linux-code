@@ -1,4 +1,5 @@
 #include "thread.hpp"
+#include "Mutex.hpp"
 #include <memory>
 #include <unistd.h>
 
@@ -22,19 +23,25 @@ void* thread_routine(void* args)
     ThreadData* td = static_cast<ThreadData*>(args);
     while(true)
     {
+        // 为了让锁只对下面的抢票进行加锁，而不影响后面的抢票完的处理操作
+        // 这里用{}也就是代码块将下面加锁的区域括起来即可！
         pthread_mutex_lock(td->_mtx);
-        if(ticket > 0)
+        pthread_mutex_lock(td->_mtx); // 造成死锁！
         {
-            usleep(12345); // 1秒=10^3毫秒=10^6微秒
-            cout << "new thread -> name: " << td->_name << "，the ticket: " << ticket << endl;
-            ticket--;
+            LockGuard lock(td->_mtx);
+            if(ticket > 0)
+            {
+                usleep(12345); // 1秒=10^3毫秒=10^6微秒
+                cout << "new thread -> name: " << td->_name << "，the ticket: " << ticket << endl;
+                ticket--;
 
-            pthread_mutex_unlock(td->_mtx); // 释放锁
-        }
-        else
-        {
-            pthread_mutex_unlock(td->_mtx); // 记得不满足也要释放锁，不然直接break会造成死锁
-            break;
+                // pthread_mutex_unlock(td->_mtx); // 释放锁
+            }
+            else
+            {
+                // pthread_mutex_unlock(td->_mtx); // 记得不满足也要释放锁，不然直接break会造成死锁
+                break;
+            }
         }
         
         // 为了避免某个线程长时间占用CPU资源，在每次售票后通过usleep函数让线程睡眠一段时间
