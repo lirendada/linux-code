@@ -32,6 +32,7 @@
         "sstream": "cpp",
         "stdexcept": "cpp",
         "tuple": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "ctime": "cpp"
     }
 }
