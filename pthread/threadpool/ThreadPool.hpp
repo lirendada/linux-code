@@ -15,16 +15,6 @@ template <class T>
 class ThreadPool
 {
 public:
-    ThreadPool(const int& maxcap = MAXCAP)
-        :_cap(maxcap)
-    {
-        // 初始化工作
-        pthread_cond_init(&_cond, nullptr);
-        pthread_mutex_init(&_mutex, nullptr);
-        for(int i = 0; i < _cap; ++i)
-            _threads.push_back(new Thread());
-    }
-
     // 启动所有线程的函数
     void run()
     {
@@ -62,6 +52,36 @@ public:
         for(const auto& t : _threads)
             delete t;
     }
+
+    static ThreadPool<T>* GetInstance()
+    {
+        // 使用双层判断来减少加锁开销
+        if(_ptp == nullptr)
+        {
+            pthread_mutex_lock(&_static_mutex);
+            if(_ptp == nullptr)
+            {
+                _ptp = new ThreadPool<T>();
+            }
+            pthread_mutex_unlock(&_static_mutex);
+        }
+        return _ptp;
+    }
+private:
+    // 封掉拷贝构造和赋值重载
+    ThreadPool<T>& operator=(const ThreadPool<T>&) = delete;
+    ThreadPool(const ThreadPool<T>&) = delete;
+
+    // 构造函数设为私有
+    ThreadPool(const int& maxcap = MAXCAP)
+        :_cap(maxcap)
+    {
+        // 初始化工作
+        pthread_cond_init(&_cond, nullptr);
+        pthread_mutex_init(&_mutex, nullptr);
+        for(int i = 0; i < _cap; ++i)
+            _threads.push_back(new Thread());
+    }
 private:
     // 线程将来在此获取来自任务队列中的任务和执行任务
     static void* handlerTask(void* args)
@@ -93,4 +113,14 @@ private:
     std::queue<T> _task_queue;     // 任务队列
     pthread_cond_t _cond;          // 用来线程等待和唤醒线程的条件变量
     pthread_mutex_t _mutex;        // 互斥锁，保护共享资源--任务队列
+
+    static pthread_mutex_t _static_mutex; // 静态互斥锁，来保护生成单例模式
+    volatile static ThreadPool<T>* _ptp;  // 静态对象指针，来生成单例对象
 };
+
+// 静态对象类外初始化
+template <class T>
+pthread_mutex_t ThreadPool<T>::_static_mutex;
+
+template <class T>
+volatile ThreadPool<T>* ThreadPool<T>::_ptp = nullptr;
