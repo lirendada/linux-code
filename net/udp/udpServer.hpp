@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <functional>
 #include <cerrno>
 #include <cstring>
 #include <cstdlib>
@@ -17,13 +18,15 @@ namespace Server
 
     static const int MAXSIZE = 1024; // 接收到的数据最大值
 
-    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR };
+    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };
+
+    using func_t = function<void(int, string, uint16_t, string)>;
 
     class udpServer
     {
     public:
-        udpServer(const uint16_t port, const string& ip = defaultIP)
-            :_port(port), _ip(ip), _socketfd(-1)
+        udpServer(func_t callback, const uint16_t port, const string& ip = defaultIP)
+            :_port(port), _ip(ip), _socketfd(-1), _callback(callback)
         {}
 
         // 初始化服务端
@@ -80,8 +83,9 @@ namespace Server
                     buffer[n] = '\0';
                     string recvmessage = buffer;
 
-                    // 打印收集到的信息
+                    // 打印收集到的信息，并且执行任务
                     cout << "[" << src_ip << ", " << src_port << "]: " <<  recvmessage << endl;
+                    _callback(_socketfd, src_ip, src_port, recvmessage);
                 }
             }
         }
@@ -99,5 +103,6 @@ namespace Server
         uint16_t _port; // 当前服务端进程的端口号
         string _ip;     // 当前服务端的ip，但是作为一个服务器，一般都是将ip设为全0，代表任意ip都能访问
         int _socketfd;  // 套接字文件的文件描述符
+        func_t _callback; // 服务端要完成的业务
     };
 }

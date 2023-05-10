@@ -49,8 +49,11 @@ namespace Client
             string message; // 要发送的信息
             while(!_quit)
             {
+                // 发送信息，建议还是统一使用C语言的形式使用读写操作
                 cout << "Please enter the message you want to send: ";
-                cin >> message;
+                char line[1024];
+                fgets(line, sizeof(line), stdin);
+                message = line;
 
                 ssize_t n = sendto(_socketfd, message.c_str(), message.size(), 0, (struct sockaddr*)&destination, sizeof(destination));
                 if(n == -1)
@@ -58,6 +61,15 @@ namespace Client
                     cerr << "send error: " << errno << " : " << strerror(errno) << endl; 
                     exit(SEND_ERR);
                 }
+
+                // 接收信息，但是后面这里我们会改成多线程，因为上面的输入导致了阻塞
+                char buffer[1024];
+                struct sockaddr_in tmp;
+                socklen_t tmplen = sizeof(tmp);
+                ssize_t s = recvfrom(_socketfd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr*)&tmp, &tmplen);
+                if(s > 0)
+                    buffer[s] = '\0';
+                cout << "服务器的翻译结果#\n" << buffer << endl;
             }
         }
 
