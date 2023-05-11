@@ -10,12 +10,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include "onlineUser.hpp"
 using namespace std;
 
 namespace Server
 {
     static const string defaultIP = "0.0.0.0"; // 默认设为0，表示接收任意IP
-
     static const int MAXSIZE = 1024; // 接收到的数据最大值
 
     enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };

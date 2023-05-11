@@ -127,10 +127,36 @@ void handlerMessage2(int sockfd, string clientip, uint16_t clientport, string cm
     pclose(stream); // 使用这个而不是fclose来关闭
 }
 
+
 // demo3 -- 一个简易的小聊天室
+onlineUser users;
+
 void handlerMessage3(int sockfd, string clientip, uint16_t clientport, string cmd)
 {
-    
+    // 判断是否为上下线请求
+    if(cmd == "online")
+        users.addOnlineUser(clientip, clientport);
+    else if(cmd == "offline")
+        users.delOnlineUser(clientip, clientport);
+
+    // 判断是否在线，是的话则进行信息的广播，不是的话则提示请登录
+    if(users.isOnlineUser(clientip, clientport) == true)
+    {
+        // 消息的广播
+        users.broadcastMessage(sockfd, clientip, clientport, cmd);
+    }
+    else
+    {
+        // 单独提示需要上线
+        struct sockaddr_in client;
+        bzero(&client, sizeof(client));
+        client.sin_family = AF_INET;
+        client.sin_port = htons(clientport);
+        client.sin_addr.s_addr = inet_addr(clientip.c_str());
+
+        string response = "你还没有上线，请先上线，运行: online";
+        sendto(sockfd, response.c_str(), response.size(), 0, (struct sockaddr*)&client, sizeof client);
+    }
 }
 
 int main(int argc, char* argv[])
