@@ -11,12 +11,14 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <pthread.h>
+#include "ThreadPool.hpp"
+#include "Task.hpp"
 #include "log.hpp"
 using namespace std;
 
 namespace Server
 {
-    enum ERROR{
+    enum {
         SOCKET_ERR = 1,
         BIND_ERR,
         LISTEN_ERR,
@@ -54,7 +56,7 @@ namespace Server
                 logMessage(Level::FATAL, "socket error");
                 exit(SOCKET_ERR);
             }
-            logMessage(Level::NORMAL, "socket success");
+            logMessage(Level::NORMAL, "socket success: %d", _listenfd);
 
             // 2.绑定信息
             struct sockaddr_in local;
@@ -81,6 +83,10 @@ namespace Server
 
         void start()
         {
+            // 初始化线程池
+            ThreadPool<Task>::GetInstance()->run();
+            logMessage(Level::NORMAL, "Thread init success");
+
             // signal(SIGCHLD, SIG_IGN);
             while(true)
             {
@@ -93,7 +99,7 @@ namespace Server
                     logMessage(Level::ERROR, "accept error");
                     continue;
                 }
-                logMessage(Level::NORMAL, "accept success");
+                logMessage(Level::NORMAL, "accept success, get new sockfd: %d", server_sockfd);
                 cout << "server_sockfd: " << server_sockfd << endl;
 
                 // version1，客户端之间的通信都是阻塞的
@@ -123,55 +129,60 @@ namespace Server
 
                 // version3 多线程版本，不能线程等待，
                 // 因为这样子就变成了线程阻塞的形式了，最好就是用线程分离
-                pthread_t tid;
-                ThreadData* td = new ThreadData(this, server_sockfd);
-                pthread_create(&tid, nullptr, thread_routine, td);
+                // pthread_t tid;
+                // ThreadData* td = new ThreadData(this, server_sockfd);
+                // pthread_create(&tid, nullptr, thread_routine, td);
+
+                // version4 线程池版本，套用我们以前写的线程池
+                // 并且这是一个单例对象，初始化在上面，这里是调用put了
+                ThreadPool<Task>::GetInstance()->put(Task(server_sockfd, service_IO));
             }
         }
 
-        static void* thread_routine(void* args)
-        {
-            // 记得线程分离
-            pthread_detach(pthread_self());
+        // static void* thread_routine(void* args)
+        // {
+        //     // 记得线程分离
+        //     pthread_detach(pthread_self());
 
-            ThreadData* td = static_cast<ThreadData*>(args);
-            td->_self->service_IO(td->_sockfd);
-            close(td->_sockfd);
-            delete td;
-            return nullptr;
-        }
+        //     ThreadData* td = static_cast<ThreadData*>(args);
+        //     td->_self->service_IO(td->_sockfd);
+        //     close(td->_sockfd);
+        //     delete td;
+        //     return nullptr;
+        // }
 
         ~tcpServer()
         {}
         
-        void service_IO(int sockfd)
-        {
-            char buffer[1024];
-            while(true)
-            {
-                ssize_t n = read(sockfd, buffer, sizeof(buffer) - 1);
-                if(n == -1)
-                {
-                    logMessage(Level::ERROR, "read error");
-                    exit(READ_ERR);
-                }
-                else if(n == 0) // 代表客户端退出
-                {
-                    logMessage(Level::NORMAL, "client quit and I must quit, too!");
-                    break;
-                }
-                else
-                {
-                    buffer[n] = '\0';
-                    cout << "receive message is: " << buffer << endl;
+        // 将该函数放到Task.hpp中
+        // void service_IO(int sockfd)
+        // {
+        //     char buffer[1024];
+        //     while(true)
+        //     {
+        //         ssize_t n = read(sockfd, buffer, sizeof(buffer) - 1);
+        //         if(n == -1)
+        //         {
+        //             logMessage(Level::ERROR, "read error");
+        //             exit(READ_ERR);
+        //         }
+        //         else if(n == 0) // 代表客户端退出
+        //         {
+        //             logMessage(Level::NORMAL, "client quit and I must quit, too!");
+        //             break;
+        //         }
+        //         else
+        //         {
+        //             buffer[n] = '\0';
+        //             cout << "receive message is: " << buffer << endl;
 
-                    // 写回给客户端
-                    string outbuffer = buffer;
-                    outbuffer += "server[echo]";
-                    write(sockfd, outbuffer.c_str(), outbuffer.size());
-                }
-            }
-        }  
+        //             // 写回给客户端
+        //             string outbuffer = buffer;
+        //             outbuffer += "server[echo]";
+        //             write(sockfd, outbuffer.c_str(), outbuffer.size());
+        //         }
+        //     }
+        // }  
     private:
         string _ip;
         uint16_t _port;

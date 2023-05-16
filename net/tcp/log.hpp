@@ -1,8 +1,15 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include <cstdarg>
+#include <ctime>
+#include <unistd.h>
+#include <sys/types.h>
 using namespace std;
 
+const char* LOG_NORMAL = "./log_normal.txt";
+const char* LOG_ERROR = "./log_error.txt";
+const int NUM = 1024;
 enum Level{
     DEBUG = 0,
     NORMAL,
@@ -10,8 +17,50 @@ enum Level{
     ERROR,
     FATAL
 };
-
-void logMessage(int level, const string& message)
+const char* to_levelstr(int level)
 {
-    cout << "[" << level << "] [" << message << "]" << endl;
+    switch(level)
+    {
+        case DEBUG: return "DEBUG";
+        case NORMAL: return "NORMAL";
+        case WARING: return "WARING";
+        case ERROR: return "ERROR";
+        case FATAL: return "FATAL";
+        default: return nullptr;
+    }
+}
+
+// 格式：[日志等级][时间戳/时间][pid][message]
+void logMessage(int level, const char* format, ...)
+{
+    // 先将时间戳转化为本地时间然后格式化
+    char timebuffer[128];
+    time_t timestamp = time(nullptr); // 获取当前时间戳
+    struct tm* timeinfo = localtime(&timestamp); // 转化为本地时间结构
+    strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", timeinfo); // 格式化时间字符串
+
+    // 前缀部分，是固定的
+    char prefixbuffer[NUM];
+    snprintf(prefixbuffer, sizeof(prefixbuffer), "[%s][%s][%d]", to_levelstr(level), timebuffer, getpid());
+
+    // 信息部分，是可变参数的内容
+    char msgbuffer[NUM];
+    va_list start;
+    va_start(start, format);
+    vsnprintf(msgbuffer, sizeof(msgbuffer), format, start);
+
+    // 写到特定等级的文件中去
+    FILE* normal = fopen(LOG_NORMAL, "a");
+    FILE* error = fopen(LOG_ERROR, "a");
+    if(normal != nullptr && error != nullptr)
+    {
+        FILE* toward = nullptr;
+        if(level == Level::DEBUG || level == Level::NORMAL || level == Level::WARING)
+            toward = normal;
+        if(level == Level::ERROR || level == Level::FATAL)
+            toward = error;
+        
+        if(toward != nullptr)
+            fprintf(toward, "%s%s\n", prefixbuffer, msgbuffer);
+    }
 }

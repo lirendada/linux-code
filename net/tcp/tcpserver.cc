@@ -1,5 +1,6 @@
 #include "tcpserver.hpp"
-#include "memory"
+#include "daemon.hpp"
+#include <memory>
 using namespace Server;
 
 void Usage(string proc)
@@ -18,6 +19,9 @@ int main(int argc, char* argv[])
 
     unique_ptr<tcpServer> tcpserver(new tcpServer(port));
     tcpserver->initServer();
+
+    daemonSelf(); // 先将服务端变成守护进程
+
     tcpserver->start();
     return 0;
 }
