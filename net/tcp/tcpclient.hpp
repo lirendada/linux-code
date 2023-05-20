@@ -50,6 +50,7 @@ namespace Client
             {
                 cerr << "socket connect error" << std::endl;
             }
+            else
             {
                 std::string msg;
                 while(true)
