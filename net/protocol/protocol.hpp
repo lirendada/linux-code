@@ -2,6 +2,8 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <sys/types.h>
+#include <sys/socket.h>
 using namespace std;
 
 const char* SEP = " ";                 // 分隔符，用于区分开序列化之间的字符
@@ -16,20 +18,82 @@ enum{
     OP_ERROR
 };
 
+// 接收客户端或者服务端发来的报文，该函数的目的是拿到一个完整的报文
+bool recvPackage(int sockfd, string& recvbuffer, string* recv_string)
+{
+    // 为了让接收到的数据出了函数后不丢失，使用static来修饰缓冲区
+    // 不过这里也可以选择让recvbuffer被外部所持有，读取时传进来即可
+    // static string recvbuffer; 
+    
+    char tmpbuffer[1024];
+    while(true)
+    {
+        ssize_t n = recv(sockfd, tmpbuffer, sizeof(tmpbuffer) - 1, 0);
+        if(n > 0)
+        {
+            tmpbuffer[n] = 0;
+            recvbuffer += tmpbuffer; // 进行尾插到缓冲区
+            
+            // 分析处理
+            auto pos = recvbuffer.find(SEP_LINE);
+            if(pos == string::npos)
+                continue; // 这步非常的关键，当没读到\r\n的时候说明读取的报文还不完整，则继续读而不是直接退出
+            
+            // 到了此处说明起码拿到了包头
+            // 而我们定义包头的规则就是存放正文的长度
+            int body_size = stoi(recvbuffer.substr(0, pos));
+
+            // 此时有可能正文还没有接收完整，我们要另作判断
+            // 如果此时 pos + SEP_LINE_LEN*2 + body_size <= recvbuffer.size() 的话
+            // 说明至少我们接收到了一个完整的报文！
+            // 如果不是的话，我们要继续循环去读取
+            int package_size = pos + SEP_LINE_LEN*2 + body_size;
+            if(package_size > recvbuffer.size())
+                continue; // 重新接收，直到读到一个完整的报文为止
+
+            // 走到这说明起码读到一个完整的报文
+            // 那么就把它拿到，并且将其重缓冲区中删去
+            *recv_string = recvbuffer.substr(0, package_size);
+            recvbuffer.erase(0, package_size);
+            break;
+        }
+        else
+        {
+            // 异常或者客户端不写了，则退出
+            return false;
+        }
+    }
+    return true;
+}
+
 // 为报文添加自定义首部和尾部的函数
-// 自定义首部规则：报文长度+行分隔符"\r\n"
+// 自定义首部规则：报文长度+行分隔符"\r\n"，比如下面的：
+// "x or yyyy"  -->  "有效载荷长度"\r\n"x or yyyy"\r\n
+// "exitcode result"  -->  "有效载荷长度"\r\n"exitcode result"\r\n
+// 其中有效载荷指的就是"x or yyyy"和"exitcode result"
 string addRule(const string& body)
 {
+    string send_string = to_string(body.size()); // 有效载荷长度
+    send_string += SEP_LINE; // 加上行分隔符
+    send_string += body;     // 加上有效载荷
+    send_string += SEP_LINE; // 加上行分隔符
 
+    return send_string;
 }
 
-// 为报文去掉自定义首部和尾部的函数
-string delRule(const string& package)
+// 为报文去掉自定义首部和尾部的函数，比如：
+// "有效载荷长度"\r\n"x or yyyy"\r\n  -->  "x or yyyy"
+bool delRule(const string& package, string* body)
 {
-
+    auto pos = package.find(SEP_LINE);
+    if(pos == string::npos)
+        return false;
+    int body_size = stoi(package.substr(0, pos));
+    *body = package.substr(pos + SEP_LINE_LEN, body_size);
+    return true;
 }
 
-// 请求一般是接收的
+// 请求一般是客户端给服务端的
 class Request
 {
 public:
@@ -76,7 +140,7 @@ public:
         // 给结构体赋值
         _x = stoi(x_string);
         _y = stoi(y_string);
-        _op = in[right - (left+SEP_LEN)];
+        _op = in[left+SEP_LEN];
         return true;
     }
 public:
@@ -85,7 +149,7 @@ public:
     char _op;
 };
 
-// 响应一般是发送出去的
+// 响应一般是服务端发给客户端的
 class Response
 {
 public:
@@ -115,9 +179,13 @@ public:
         auto pos = in.find(SEP);
         if(pos == string::npos)
             return false;
-        _exitcode = stoi(in.substr(0, pos));
-        _result = stoi(in.substr(pos + 1, in.size() - pos - SEP_LEN));
+        string ec_string = in.substr(0, pos);
+        string res_string = in.substr(pos + SEP_LEN);
+        if(ec_string.empty() || res_string.empty())
+            return false;
 
+        _exitcode = stoi(ec_string);
+        _result = stoi(res_string);
         return true;
     }
 public:

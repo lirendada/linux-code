@@ -33,38 +33,51 @@ namespace Server
     // resp：输出型参数
     typedef function<bool(const Request& req, Response& resp)> func_t;
 
-    bool handlerEntery(int sockfd, func_t func)
+    // 保证解耦
+    void handlerEntery(int sockfd, func_t func)
     {
-        // 1. 读取
-        // 1.1 你怎么保证你读到的消息是【一个】完整的请求
-        // 1.2 要将收到的请求进行去掉自定义规则部分
-        string request_string;
+        string recvbuffer;
+        while(true)
+        {
+            // 1. 读取客户端发来的数据
+            // 1.1 你怎么保证你读到的消息是【一个】完整的请求？？？由recvPackage帮我们完成
+            string recv_string;
+            if(!recvPackage(sockfd, recvbuffer, &recv_string))
+                return;
+            // 1.2 要将收到的请求进行去掉自定义规则部分
+            string request_string;
+            if(!delRule(recv_string, &request_string))
+                return;
 
+            // 2. 对请求request进行反序列化
+            // 2.1 得到一个结构化的请求对象
+            Request req;
+            if(!req.deserialize(request_string))
+                return;
 
-        // 2. 对请求request进行反序列化
-        // 2.1 得到一个结构化的请求对象
-        Request req;
-        if(!req.deserialize(request_string))
-            return false;
+            // 3. 计算处理，通过对象获取对应的数据进行计算 --- 业务逻辑
+            // 3.1 得到一个结构化的响应
+            Response resp;
+            func(req, resp);
 
-        // 3. 计算处理，通过对象获取对应的数据进行计算 --- 业务逻辑
-        // 3.1 得到一个结构化的响应
-        Response resp;
-        func(req, resp);
+            // 4. 对响应response进行序列化
+            // 4.1 得到一个序列化的“字符串”
+            string response_string;
+            if(!resp.serialize(&response_string))
+                return;
 
-        // 4. 对响应response进行序列化
-        // 4.1 得到一个序列化的“字符串”
-        string response_string;
-        if(!resp.serialize(&response_string))
-            return false;
-
-        // 5. 然后再发送响应
+            // 5. 然后再发送响应
+            // 5.1 发送之前先加上自定义规则
+            string send_string = addRule(response_string);
+            // 5.2 再将包装好的数据发送出去
+            send(sockfd, send_string.c_str(), send_string.size(), 0); // 这里有问题，后面再说
+        }
     }
 
     class tcpServer
     {
     public:
-        tcpServer(const uint16_t& port = gport) : _port(port), _listenfd(-1)
+        tcpServer(const uint16_t& port = gport) : _port(port), _listenfd(0)
         {}
 
         void initServer()
@@ -85,7 +98,7 @@ namespace Server
             local.sin_port = htons(_port);
             local.sin_addr.s_addr = INADDR_ANY;
 
-            if((bind(_listenfd, (struct sockaddr*)&local, sizeof local)) < 0)
+            if(bind(_listenfd, (struct sockaddr*)&local, sizeof local) == -1)
             {
                 logMessage(Level::FATAL, "bind error");
                 exit(BIND_ERR);
@@ -123,7 +136,7 @@ namespace Server
                 if(id == 0)
                 {
                     close(_listenfd);
-                    handlerEntery(server_sockfd, func); // 执行我们的定制协议函数
+                    handlerEntery(server_sockfd, func); // 执行我们的服务器处理函数
                     close(server_sockfd);
                     exit(0);
                 }
@@ -137,7 +150,6 @@ namespace Server
         ~tcpServer()
         {}
     private:
-        string _ip;
         uint16_t _port;
         int _listenfd;
     };
