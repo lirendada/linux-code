@@ -33,6 +33,7 @@
         "stdexcept": "cpp",
         "tuple": "cpp",
         "utility": "cpp",
-        "ctime": "cpp"
+        "ctime": "cpp",
+        "cstdarg": "cpp"
     }
 }
