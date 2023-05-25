@@ -4,6 +4,7 @@
 #include <cstring>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <jsoncpp/json/json.h>
 using namespace std;
 
 const char* SEP = " ";                 // 分隔符，用于区分开序列化之间的字符
@@ -48,13 +49,19 @@ bool recvPackage(int sockfd, string& recvbuffer, string* recv_string)
             // 说明至少我们接收到了一个完整的报文！
             // 如果不是的话，我们要继续循环去读取
             int package_size = pos + SEP_LINE_LEN*2 + body_size;
+            std::cout << "处理前#recvbuffer: \n" << recvbuffer << std::endl;
             if(package_size > recvbuffer.size())
+            {
+                cout << "你输入的消息，没有严格遵守我们的协议，正在等待后续的内容, continue" << endl;
                 continue; // 重新接收，直到读到一个完整的报文为止
+            }
 
             // 走到这说明起码读到一个完整的报文
             // 那么就把它拿到，并且将其重缓冲区中删去
             *recv_string = recvbuffer.substr(0, package_size);
             recvbuffer.erase(0, package_size);
+
+            std::cout << "处理后#recvbuffer:\n " << recvbuffer << std::endl;
             break;
         }
         else
@@ -110,6 +117,7 @@ public:
     // 2. 用现成的库函数
     bool serialize(string* out) // 输出型参数
     {
+#ifdef MYSELF
         // 结构体 -> "x op y"
         *out = ""; // 格式化一下out
 
@@ -118,10 +126,23 @@ public:
         *out += _op;
         *out += SEP;
         *out += to_string(_y);
+#else
+        // 填写键值对
+        Json::Value root;
+        root["first"] = _x;
+        root["second"] = _y;
+        root["operator"] = _op;
+
+        // 选择方式进行序列化
+        Json::FastWriter writer;
+        // Json::StyledWriter writer;
+        *out = writer.write(root);
+#endif
         return true;
     }
     bool deserialize(const string& in)
     {
+#ifdef MYSELF
         // "x op yyyy" -> 结构体
         // 1.首先找到两个分隔符的位置
         auto left = in.find(SEP);
@@ -141,6 +162,15 @@ public:
         _x = stoi(x_string);
         _y = stoi(y_string);
         _op = in[left+SEP_LEN];
+#else
+        Json::Reader reader;
+        Json::Value root;
+        reader.parse(in, root); // 将in中的字符流反序列化到root中
+
+        _x = root["first"].asInt();
+        _y = root["second"].asInt();
+        _op = root["operator"].asInt(); // 注意这里因为字符也是ASCII码，所以直接转为int即可
+#endif
         return true;
     }
 public:
@@ -164,17 +194,26 @@ public:
     // 2. 用现成的库函数
     bool serialize(string* out) // 输出型参数
     {
+#ifdef MYSELF
         // 结构体 -》 "exitcode result"
         *out = ""; // 格式化一下字符串
         // 将类内成员转化为字符串
         *out += to_string(_exitcode);
         *out += SEP;
         *out += to_string(_result);
+#else
+        Json::Value root;
+        root["exitcode"] = _exitcode;
+        root["result"] = _result;
 
+        Json::FastWriter writer;
+        *out = writer.write(root);
+#endif
         return true;
     }
     bool deserialize(const string& in)
     {
+#ifdef MYSELF
         // "exitcode result" -》 结构体
         auto pos = in.find(SEP);
         if(pos == string::npos)
@@ -186,6 +225,14 @@ public:
 
         _exitcode = stoi(ec_string);
         _result = stoi(res_string);
+#else
+        Json::Value root;
+        Json::Reader reader;
+        reader.parse(in, root);
+        
+        _exitcode = root["exitcode"].asInt();
+        _result = root["result"].asInt();
+#endif
         return true;
     }
 public:

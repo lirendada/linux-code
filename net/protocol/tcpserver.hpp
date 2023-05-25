@@ -44,10 +44,12 @@ namespace Server
             string recv_string;
             if(!recvPackage(sockfd, recvbuffer, &recv_string))
                 return;
+            std::cout << "带报头的请求：\n" << recv_string << std::endl;
             // 1.2 要将收到的请求进行去掉自定义规则部分
             string request_string;
             if(!delRule(recv_string, &request_string))
                 return;
+            std::cout << "去掉报头的正文：\n" << request_string << std::endl;
 
             // 2. 对请求request进行反序列化
             // 2.1 得到一个结构化的请求对象
@@ -65,10 +67,12 @@ namespace Server
             string response_string;
             if(!resp.serialize(&response_string))
                 return;
+            std::cout << "计算完成, 序列化响应: " <<  response_string << std::endl;
 
             // 5. 然后再发送响应
             // 5.1 发送之前先加上自定义规则
             string send_string = addRule(response_string);
+            std::cout << "加上报头，构建完成完整的响应：\n" <<  send_string << std::endl;
             // 5.2 再将包装好的数据发送出去
             send(sockfd, send_string.c_str(), send_string.size(), 0); // 这里有问题，后面再说
         }
@@ -116,7 +120,6 @@ namespace Server
 
         void start(func_t func)
         {
-            signal(SIGCHLD, SIG_IGN);
             while(true)
             {
                 // 4.若监听到客户端的信息之后，进行accept
@@ -129,7 +132,6 @@ namespace Server
                     continue;
                 }
                 logMessage(Level::NORMAL, "accept success, get new sockfd: %d", server_sockfd);
-                cout << "server_sockfd: " << server_sockfd << endl;
 
                 // version2 多进程版本，主要学习思想，借助的是孙子进程或者不被父进程负责回收的子进程
                 pid_t id= fork();

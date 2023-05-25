@@ -58,11 +58,11 @@ namespace Client
                 while(true)
                 {
                     cout << "Enter>>> ";
-                    getline(cin, msg);
+                    getline(cin, msg); // 比如"1+1"、"212345*131"
 
                     // 1. 首先肯定是创建请求并且发送给服务端
                     // 1.1 发送之前要先序列化，然后加上自定义规则再发送
-                    Request req(10, 10, '+');
+                    Request req = getMsg(msg); // 将键盘输入转化为Request
                     string send_body;
                     if(!req.serialize(&send_body)) // 序列化
                         continue;
@@ -87,6 +87,27 @@ namespace Client
                     cout << "result: " << resp._result << endl;
                 }
             }
+        }
+
+        Request getMsg(const string msg)
+        {
+            string leftnum, rightnum;
+            char op;
+            int status = 0; // 0表示左操作数范围，1表示右操作数范围
+            for(int i = 0; i < msg.size(); ++i)
+            {
+                if(!isdigit(msg[i])) // 说明遇到操作符
+                {
+                    op = msg[i];
+                    status = 1;
+                    continue;
+                }
+                if(status == 0)
+                    leftnum += msg[i];
+                else
+                    rightnum += msg[i];
+            }
+            return Request(stoi(leftnum), stoi(rightnum), op);
         }
 
         ~tcpClient()
