@@ -34,6 +34,7 @@
         "tuple": "cpp",
         "utility": "cpp",
         "ctime": "cpp",
-        "cstdarg": "cpp"
+        "cstdarg": "cpp",
+        "string": "cpp"
     }
 }
