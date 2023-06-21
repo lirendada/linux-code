@@ -29,9 +29,10 @@ void http_callback(wsserver_t* server, websocketpp::connection_hdl hdl)
 
     // 然后再响应资源
     std::string body = "<html><body><h1>Hello Liren!</h1></body></html>"; // 写一个简单的html页面格式
-    conn_ptr->set_body(body);                                             // 设置响应正文
-    conn_ptr->append_header("Content-Type", "text/html");                 // 设置响应头部
-    conn_ptr->set_status(websocketpp::http::status_code::ok);             // 设置响应状态码
+    conn_ptr->set_body(conn_ptr->get_request_body());
+    // conn_ptr->set_body(body);                                             // 设置响应正文
+    // conn_ptr->append_header("Content-Type", "text/html");                 // 设置响应头部
+    // conn_ptr->set_status(websocketpp::http::status_code::ok);             // 设置响应状态码
 }
 
 // 任务：收到一个消息进行打印，然后进行响应

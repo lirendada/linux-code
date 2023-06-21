@@ -1,3 +1,6 @@
+.PHONY:all 
+all:	mysql json server
+
 mysql:mysql.c
 	gcc -o $@ $^ -L/usr/lib64/mysql/ -lmysqlclient
 json:json.cpp
