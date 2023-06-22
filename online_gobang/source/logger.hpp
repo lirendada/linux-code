@@ -1,12 +1,12 @@
-#ifndef __MY_LOG__
-#define __MY_LOG__
+#ifndef __MY_LOG_H__
+#define __MY_LOG_H__
 #include <stdio.h>
 #include <time.h>
 
 #define INF 0    // 提示型等级
 #define DEBUG 1  // 调试型等级
 #define ERROR 2  // 错误型等级
-#define DEFAULT_LOG_LEVEL DEBUG  // 默认的日志等级
+#define DEFAULT_LOG_LEVEL ERROR  // 默认的日志等级
 
 #define LOG(level, format, ...) do{\
     if(DEFAULT_LOG_LEVEL < level) break;\
