@@ -83,7 +83,6 @@ public:
         {
             // 错误处理
             ELOG("%s --> sql query failed : %s", query.c_str(), mysql_error(mysql));
-            mysql_close(mysql);
             return false;
         }
         return true;

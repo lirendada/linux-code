@@ -1,5 +1,6 @@
 #include "logger.hpp"
 #include "util.hpp"
+#include "db.hpp"
 
 #define HOST "127.0.0.1"  // 不允许使用公网地址，所以用本地换回
 #define USER "root"
@@ -61,8 +62,26 @@ void file_test()
     DLOG("%s", str.c_str());
 }
 
+void db_test()
+{
+    user_table ut(HOST, USER, PASSWD, DBNAME, PORT);
+    Json::Value user;
+    // user["username"] = "xiaoming";
+    // user["password"] = "123456";
+
+    bool ret = ut.lose(1);
+    if(ret == false)
+    {
+        DLOG("login failed!");
+        return;
+    }
+    std::string body;
+    json_util::serialize(user, body);
+    std::cout << body << std::endl;
+}
+
 int main()
 {
-    file_test();
+    db_test();
     return 0;
 }
