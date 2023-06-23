@@ -10,6 +10,10 @@
 #include <jsoncpp/json/json.h>
 #include <mysql/mysql.h>
 
+#include <websocketpp/server.hpp>
+#include <websocketpp/config/asio_no_tls.hpp>
+using wsserver_t = websocketpp::server<websocketpp::config::asio>;
+
 // 因为这个头文件的工具都是对外提供服务的接口
 // 所以基本都是设置为public和static（就可以不用实例化对象）属性
 

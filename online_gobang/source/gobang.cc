@@ -1,6 +1,7 @@
 #include "logger.hpp"
 #include "util.hpp"
 #include "db.hpp"
+#include "online.hpp"
 
 #define HOST "127.0.0.1"  // 不允许使用公网地址，所以用本地换回
 #define USER "root"
@@ -80,8 +81,27 @@ void db_test()
     std::cout << body << std::endl;
 }
 
+void online_test()
+{
+    online_manager om;
+    wsserver_t::connection_ptr conn;
+    uint64_t uid = 2;
+
+    om.enterHall(uid, conn);
+    if (om.isInHall(uid)) 
+        DLOG("IN GAME HALL");
+    else 
+        DLOG("NOT IN GAME HALL");
+
+    om.exitHall(uid);
+    if (om.isInHall(uid)) 
+        DLOG("IN GAME HALL");
+    else 
+        DLOG("NOT IN GAME HALL");
+}
+
 int main()
 {
-    db_test();
+    online_test();
     return 0;
 }
