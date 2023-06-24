@@ -1,7 +1,4 @@
-#include "logger.hpp"
-#include "util.hpp"
-#include "db.hpp"
-#include "online.hpp"
+#include "room.hpp"
 
 #define HOST "127.0.0.1"  // 不允许使用公网地址，所以用本地换回
 #define USER "root"
@@ -102,6 +99,8 @@ void online_test()
 
 int main()
 {
-    online_test();
+    user_table ut(HOST, USER, PASSWD, DBNAME, PORT);
+    online_manager om;
+    room r(10, &ut, &om);
     return 0;
 }
