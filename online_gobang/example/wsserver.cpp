@@ -1,18 +1,14 @@
 #include <iostream>
 #include <string>
+#include <functional>
 #include <websocketpp/server.hpp>
 #include <websocketpp/config/asio_no_tls.hpp>
 
 using wsserver_t = websocketpp::server<websocketpp::config::asio>;
 
-void open_callback(wsserver_t* server, websocketpp::connection_hdl hdl)
-{
-    std::cout << "websocket握手成功！" << std::endl;
-}
-
-void close_callback(wsserver_t* server, websocketpp::connection_hdl hdl)
-{
-    std::cout << "websocket断开连接！" << std::endl;
+void print(const std::string& body)
+{   
+    std::cout << body << std::endl;
 }
 
 // 任务：打印请求内容，并且设置响应内容
@@ -33,6 +29,19 @@ void http_callback(wsserver_t* server, websocketpp::connection_hdl hdl)
     // conn_ptr->set_body(body);                                             // 设置响应正文
     // conn_ptr->append_header("Content-Type", "text/html");                 // 设置响应头部
     // conn_ptr->set_status(websocketpp::http::status_code::ok);             // 设置响应状态码
+
+    wsserver_t::timer_ptr tp = server->set_timer(5000, std::bind(print, "lirenniubi !"));
+    tp->cancel();
+}
+
+void open_callback(wsserver_t* server, websocketpp::connection_hdl hdl)
+{
+    std::cout << "websocket握手成功！" << std::endl;
+}
+
+void close_callback(wsserver_t* server, websocketpp::connection_hdl hdl)
+{
+    std::cout << "websocket断开连接！" << std::endl;
 }
 
 // 任务：收到一个消息进行打印，然后进行响应

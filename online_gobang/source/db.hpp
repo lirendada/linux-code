@@ -54,7 +54,7 @@ public:
     // 登录函数
     bool login(Json::Value& user)
     {
-#define LOGIN "select id, score, total_count, win_count from user where username='%s' and password=password('%s');"
+#define LOGIN_SQL "select id, score, total_count, win_count from user where username='%s' and password=password('%s');"
         // 1. 首先判断是否提供了用户名和密码
         if(user["username"].isNull() || user["password"].isNull())
         {
@@ -64,7 +64,7 @@ public:
 
         // 2. 将语句格式化后放到query数组中
         char query[4096] = {0};
-        sprintf(query, LOGIN, user["username"].asCString(), user["password"].asCString());
+        sprintf(query, LOGIN_SQL, user["username"].asCString(), user["password"].asCString());
 
         // 3. 执行sql语句，因为查询之后需要保存到本地，为了保证保存过程的线程安全，这段代码需要加锁
         //    这里不直接使用加锁，而是通过守卫锁来管理锁，更加安全

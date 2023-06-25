@@ -264,4 +264,126 @@ private:
 };
 
 
+using room_ptr = std::shared_ptr<room>; // 声明一个房间类的智能指针类型
+
+class room_manager
+{
+private:
+    user_table* _user_tb;         // 数据库用户信息表管理句柄                          
+    online_manager* _online_user; // 在线用户管理句柄
+    uint64_t count;               // 房间 ID 分配计数器
+    std::mutex _mtx;              // 互斥锁
+    std::unordered_map<uint64_t, room_ptr> rid_rinfo_hash; // 房间id与房间信息的管理哈希表
+    std::unordered_map<uint64_t, uint64_t> uid_rid_hash;   // 用户id与房间id的管理哈希表
+public:
+    // 构造函数和析构函数
+    room_manager(user_table* user_tb, online_manager* online_user)
+        : _user_tb(user_tb), _online_user(online_user)
+    { DLOG("房间管理模块初始化完毕！"); }
+    ~room_manager() { DLOG("房间管理模块即将销毁！"); }
+
+    // 增加房间函数，并返回该房间的智能指针管理对象
+    room_ptr addRoom(uint64_t uid1, uint64_t uid2)
+    {
+        // 背景：两个用户在游戏大厅中进行对战匹配，匹配成功后创建房间
+        // 1. 校验两个用户是否都还在游戏大厅中，只有都在才需要创建房间
+        if(_online_user->isInHall(uid1) == false || _online_user->isInHall(uid2) == false)
+        {
+            DLOG("有用户不在大厅中，创建房间失败!");
+            return room_ptr();
+        }
+
+        // 2. 创建房间，将用户信息添加到房间中
+        std::unique_lock<std::mutex> lock(_mtx); // 从这里开始的操作都要加锁保护
+        room_ptr rp(new room(count, _user_tb, _online_user));
+        rp->add_white(uid1);
+        rp->add_black(uid2);
+
+        // 3. 将房间信息管理起来，记得最后要对计数器++
+        uid_rid_hash[uid1] = count;
+        uid_rid_hash[uid2] = count;
+        rid_rinfo_hash[count] = rp;
+        count++; // 这步别忘了
+
+        // 4. 返回房间信息
+        return rp;
+    }
+
+    // 通过房间ID获取房间信息
+    room_ptr getRoom_ByRoomID(uint64_t roomID)
+    {
+        std::unique_lock<std::mutex> lock(_mtx); // 需要加锁保护
+        auto ret = rid_rinfo_hash.find(roomID);
+        if(ret == rid_rinfo_hash.end())
+        {
+            return room_ptr();
+        }
+        return ret->second;
+    }
+
+    // 通过用户ID获取房间信息
+    room_ptr getRoom_ByUserID(uint64_t userID)
+    {
+        std::unique_lock<std::mutex> lock(_mtx); // 需要加锁保护
+
+        // 1. 先通过用户ID查找房间ID
+        auto ret = uid_rid_hash.find(userID);
+        if(ret == uid_rid_hash.end())
+        {
+            return room_ptr();
+        }
+
+        // 2. 再通过房间ID获取房间信息
+        // 注意：不能直接调用getRoom_ByRoomID来获取房间信息，因为会重复加锁导致死锁
+        auto it = rid_rinfo_hash.find(ret->second);
+        if(it == rid_rinfo_hash.end())
+        {
+            return room_ptr();
+        }
+        return it->second;
+    }
+
+    // 通过房间ID销毁房间
+    void removeRoom(uint64_t roomID)
+    {
+        // 因为房间信息是通过shared_ptr在哈希表中进行管理，因此只要将shared_ptr从哈希表中移除
+        // 则当shared_ptr计数器==0，外界没有对房间信息进行操作保存的情况下就会释放
+        // 但是因为房间中的用户信息等也要移除，不然会造成内存泄漏问题
+        // 所以我们要先移除必须的用户信息再移除房间管理信息
+
+        // 1. 通过房间ID，获取房间信息
+        room_ptr rp = getRoom_ByRoomID(roomID);
+        if(rp.get() == nullptr)
+            return;
+
+        // 2. 通过房间信息，获取房间中所有用户的ID
+        uint64_t uid1 = rp->getBlackID();
+        uint64_t uid2 = rp->getWhiteID();
+
+        // 3. 移除房间管理中的用户信息
+        std::unique_lock<std::mutex> lock(_mtx); // 加锁保护
+        uid_rid_hash.erase(uid1);
+        uid_rid_hash.erase(uid2);
+
+        // 4. 移除房间管理信息
+        rid_rinfo_hash.erase(roomID);
+    }
+
+    // 删除房间中指定用户，如果房间中没有用户了，则销毁房间，用户连接断开时被调用
+    void removeUser(uint64_t userID)
+    {
+        // 1. 首先获取房间信息
+        room_ptr rp = getRoom_ByUserID(userID);
+        if(rp.get() == nullptr) 
+            return;
+
+        // 2. 处理玩家退出动作
+        rp->exit_handle(userID);
+
+        // 3. 判断一下房间是否没有用户了，没有的话销毁房间
+        if(rp->getPlayerNum() == 0)
+            removeRoom(rp->getRoomID());
+    }
+};
+
 #endif

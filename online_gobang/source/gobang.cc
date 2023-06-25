@@ -1,5 +1,5 @@
 #include "room.hpp"
-
+#include "session.hpp"
 #define HOST "127.0.0.1"  // 不允许使用公网地址，所以用本地换回
 #define USER "root"
 #define PASSWD ""
@@ -101,6 +101,7 @@ int main()
 {
     user_table ut(HOST, USER, PASSWD, DBNAME, PORT);
     online_manager om;
-    room r(10, &ut, &om);
+    // room_manager rm(&ut, &om);
+    // rm.addRoom(10, 20);
     return 0;
 }
