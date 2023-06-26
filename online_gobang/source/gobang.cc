@@ -1,5 +1,6 @@
 #include "room.hpp"
 #include "session.hpp"
+#include "matcher.hpp"
 #define HOST "127.0.0.1"  // 不允许使用公网地址，所以用本地换回
 #define USER "root"
 #define PASSWD ""
