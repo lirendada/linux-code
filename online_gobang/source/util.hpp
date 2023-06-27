@@ -195,7 +195,7 @@ public:
     {
         // 1.打开文件（注意要用二进制形式打开）
         std::ifstream ifs(filename, std::ios::binary);
-        if(!ifs.is_open())
+        if(ifs.is_open() == false)
         {
             ELOG("%s file open failed", filename.c_str());
             return false;
@@ -213,6 +213,7 @@ public:
         if(ifs.good() == false)
         {
             ELOG("read %s file content failed", filename.c_str());
+            ifs.close();
             return false;
         }
 

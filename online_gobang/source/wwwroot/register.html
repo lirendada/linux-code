@@ -29,11 +29,46 @@
             </div>
             <!-- 提交按钮 -->
             <div class="row">
-                <button id="submit">提交</button>
+                <button id="submit" onclick="reg()">提交</button>
             </div>
         </div>
     </div> 
-
     <script src="js/jquery.min.js"></script>
+    <script>
+        // 1. 给提交按钮添加点击事件
+        function reg()
+        {
+            // 2. 获取两个输入框中的数据，组织成一个json串
+            var reg_info = {
+                username: document.getElementById("user_name").value,
+                password: document.getElementById("password").value
+            };
+            // 3. 通过ajax向后台发送用户注册请求
+            $.ajax ({
+                url: "/reg",
+                type: "post",
+                data: JSON.stringify(reg_info),
+                success: function(res){
+                    if(res.result == true){
+                        // 如果请求成功，则跳转到登录页面
+                        alert(res.reason)
+                        window.location.assign("/login.html");
+                    }else{
+                        // 如果请求失败，则清空输入框内容，并提示错误原因
+                        document.getElementById("user_name").value = "";
+                        document.getElementById("password").value = "";
+                        alert(res.reason);
+                    }
+                },
+                error: function(xhr)
+                {
+                    document.getElementById("user_name").value = "";
+                    document.getElementById("password").value = "";
+                    // alert(JSON.stringify(xhr))
+                    alert("该用户名已经存在，请重新输入用户名和密码！")
+                }
+            })
+        }
+    </script>
 </body>
 </html>

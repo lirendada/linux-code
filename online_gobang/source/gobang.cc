@@ -1,6 +1,5 @@
-#include "room.hpp"
-#include "session.hpp"
-#include "matcher.hpp"
+#include "server.hpp"
+
 #define HOST "127.0.0.1"  // 不允许使用公网地址，所以用本地换回
 #define USER "root"
 #define PASSWD ""
@@ -100,9 +99,12 @@ void online_test()
 
 int main()
 {
-    user_table ut(HOST, USER, PASSWD, DBNAME, PORT);
-    online_manager om;
+    // user_table ut(HOST, USER, PASSWD, DBNAME, PORT);
+    // online_manager om;
     // room_manager rm(&ut, &om);
     // rm.addRoom(10, 20);
+
+    gobang_server server(HOST, USER, PASSWD, DBNAME, PORT);
+    server.start(8080);
     return 0;
 }

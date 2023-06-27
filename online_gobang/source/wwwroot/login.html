@@ -30,12 +30,39 @@
             </div>
             <!-- 提交按钮 -->
             <div class="row">
-                <button id="submit">提交</button>
+                <button id="submit" onclick="login()">提交</button>
             </div>
         </div>
 
     </div>
-
     <script src="./js/jquery.min.js"></script>
+    <script>
+        // 1. 给按钮添加点击事件，调用登录请求函数
+        // 2. 封装登录请求函数
+        function login(){
+            // 1. 获取输入框中的用户名和密码，并组织json对象
+            var login_info = {
+                username: document.getElementById("user_name").value,
+                password: document.getElementById("password").value
+            };
+            // 2. 通过ajax向后台发送登录请求
+            $.ajax({
+                url: "/login",
+                type: "post",
+                data: JSON.stringify(login_info),
+                success: function(res){
+                    // 3. 如果验证通过，则跳转到游戏大厅页面
+                    alert("登录成功");
+                    window.location.assign("/game_hall.html");
+                },
+                error: function(xhr){
+                    // 4. 如果验证失败，则提示错误信息，并清空输入框
+                    alert("请输入正确的用户名和密码！");
+                    document.getElementById("user_name").value = "";
+                    document.getElementById("password").value = "";
+                }
+            })
+        }
+    </script>
 </body>
 </html>
