@@ -165,25 +165,23 @@ public:
     // src：要分割的字符串
     // sep：分隔符
     // res：存放子串的结果集数组
-    static int split(const std::string& src, const std::string&& sep, std::vector<std::string>& res)
+    static int split(const std::string& src, const std::string& sep, std::vector<std::string>& res)
     {
-        auto pos = src.find(sep);
-        int pre = 0;
-        while(pos != std::string::npos)
-        {
-            // 这个判断是避免sep是','，而字符串是",,,,"的时候，下面在push_back中pos-pre是0，会插入一个空字符串的情况
-            if(pos == pre)
-            {
-                pre += sep.size();
-                pos = src.find(sep, pre);
+        size_t pos, idx = 0;
+        while(idx < src.size()) {
+            pos = src.find(sep, idx);
+            if (pos == std::string::npos) {
+                //没有找到,字符串中没有间隔字符了，则跳出循环
+                res.push_back(src.substr(idx));
+                break;
+            }
+            if (pos == idx) {
+                idx += sep.size();
                 continue;
             }
-            res.push_back(src.substr(pre, pos - pre));      
-            // 注意是加sep.size()而不是只加1
-            pre = pos + sep.size(); 
-            pos = src.find(sep, pre);
+            res.push_back(src.substr(idx, pos - idx));
+            idx = pos + sep.size();
         }
-        res.push_back(src.substr(pre)); // 别忘了还有最后一个子串
         return res.size();
     }
 };

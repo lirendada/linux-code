@@ -41,8 +41,8 @@ public:
     void setTimer(const wsserver_t::timer_ptr& timer) { _timer = timer; }
 };
 
-#define SESSION_EXPIRE_TIME 30000  // 代表会话保存时间为30000ms
-#define SESSION_FOREVER -1         // 代表会话永久，不过期
+#define SESSION_EXPIRE_TIME 30000 
+#define SESSION_FOREVER -1         
 using session_ptr = std::shared_ptr<session>; // 声明一个智能指针管理的会话对象类型
 
 class session_manager
@@ -129,8 +129,8 @@ public:
         else if(timer.get() == nullptr && ms != SESSION_FOREVER)
         {
             // 2. 在session永久存在的情况下，设置指定时间之后被删除的定时任务
-            sp->setTimer(timer);
             timer = _server->set_timer(ms, std::bind(&session_manager::removeSession, this, sessionID));
+            sp->setTimer(timer);
         }
         else if(timer.get() != nullptr && ms == SESSION_FOREVER)
         {
@@ -144,7 +144,7 @@ public:
             // 这里得再搞一个定时器，设置触发时间为0，触发函数为添加会话函数
             // 也就是此时添加会话函数的执行的顺序就排在了删除会话函数后，保证了不会提取删的情况！
             // 但是因为add_session函数是新建一个session，我们要添加的是原来这个session，所以创建一个子函数append来满足我们这个要求
-            wsserver_t::timer_ptr tmp_tp = _server->set_timer(0, std::bind(&session_manager::append, this, sp));
+            _server->set_timer(0, std::bind(&session_manager::append_session, this, sp));
         }
         else if(timer.get() != nullptr && ms != SESSION_FOREVER)
         {
@@ -155,15 +155,15 @@ public:
             // 这样子就能保证append添加会话函数在删除会话函数之后才执行！
             timer->cancel();
             sp->setTimer(wsserver_t::timer_ptr());
-            _server->set_timer(0, std::bind(&session_manager::append, this, sp));
+            _server->set_timer(0, std::bind(&session_manager::append_session, this, sp));
             
             // 然后再重新设置删除时间
             wsserver_t::timer_ptr tmp_tp = _server->set_timer(ms, std::bind(&session_manager::removeSession, this, sp->getSessionID()));
             sp->setTimer(tmp_tp); // 重新设置session关联的定时器
         }
     }
-private:
-    session_ptr append(session_ptr sp)
+    
+    void append_session(const session_ptr& sp)
     {
         std::unique_lock<std::mutex> lock(_mtx);
         _hash[sp->getSessionID()] = sp;

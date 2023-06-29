@@ -49,12 +49,15 @@ public:
     // 总的请求处理函数，在函数内部区分请求类型，根据不同的请求调用不同的处理函数，得到响应进行广播
     void request_handle(Json::Value& req)
     {
-        Json::Value response = req;
+        DLOG("总的请求处理函数开始");
+        Json::Value response;
 
-        // 1. 判断当前请求的房间号是否与当前房间的房间号匹配
+        // 1. 首先需要判断当前请求的房间号是否与当前房间的房间号匹配
         uint64_t room_id = req["room_id"].asUInt64();
         if(_room_id != room_id)
         {
+            DLOG("房间号不匹配");
+            response["optype"] = req["optype"].asString();
             response["result"] = false;
             response["reason"] = "游戏房间不匹配";
             broadcast(response); // 广播信息
@@ -62,12 +65,15 @@ public:
         }
 
         // 2. 根据不同的请求调用不同的处理函数
-        if(req["optype"].asCString() == "put_chess")
+        //	  是根据json数据字段中的"optype"来确定是何种请求的
+        if(req["optype"].asString() == "put_chess")
         {
+            DLOG("收到是下棋请求");
             response = chess_handle(req);
-            // 判断如果不是平局，那么就得更新数据库
+            // 判断如果不是平局，那么就得更新数据库，因为有人获胜了
             if(response["winner"].asUInt64() != 0)
             {
+                DLOG("有人胜利");
                 uint64_t winner_id = response["winner"].asUInt64();
                 uint64_t loser_id = (winner_id == _white_id ? _black_id : _white_id);
                 _table_user->win(winner_id);
@@ -77,12 +83,15 @@ public:
                 _status = GAME_OVER;
             }
         }
-        else if(req["optype"].asCString() == "chat")
+        else if(req["optype"].asString() == "chat")
         {
+            DLOG("收到是聊天请求");
             response = chat_handle(req);
         }
         else
         {
+            DLOG("未知请求");
+            response["optype"] = req["optype"].asString();
             response["result"] = false;
             response["reason"] = "未知请求类型";
         }
@@ -103,15 +112,17 @@ public:
         uint64_t uid = req["uid"].asUInt64();
         int chess_row = req["row"].asInt();
         int chess_col = req["col"].asInt();
-        if(!_online_user->isInRoom(_white_id))
+        if(_online_user->isInRoom(_white_id) == false)
         {
+            DLOG("对方掉线");
             response["result"] = true;
             response["reason"] = "运气真好！对方掉线，不战而胜！";
             response["winner"] = (Json::UInt64)_black_id;
             return response;
         }
-        if(!_online_user->isInRoom(_black_id))
+        if(_online_user->isInRoom(_black_id) == false)
         {
+            DLOG("对方掉线");
             response["result"] = true;
             response["reason"] = "运气真好！对方掉线，不战而胜！";
             response["winner"] = (Json::UInt64)_white_id;
@@ -121,6 +132,7 @@ public:
         // 2. 根据走棋位置，判断当前走棋是否合理（比如位置是否已经被占用了）
         if(_board[chess_row][chess_col] != 0)
         {
+            DLOG("该位置已有棋子");
             response["result"] = false;
             response["reason"] = "当前位置已经有了其他棋子！";
             return response;
@@ -129,11 +141,13 @@ public:
         _board[chess_row][chess_col] = chess_color;
 
         // 3. 判断是否有玩家胜利（从当前走棋位置开始判断是否存在五星连珠）
+        DLOG("判断是否有玩家胜利：开始");
         uint64_t winner_id = check_win(chess_row, chess_col, chess_color);
         if(winner_id != 0)
             response["reason"] = "五星连珠，战无敌！";
         response["result"] = true;
         response["winner"] = (Json::UInt64)winner_id;
+        DLOG("下棋操作结束");
         return response;
     }
 
@@ -197,7 +211,7 @@ public:
     {
         // 1. 对要响应的信息进行序列化，将Json::Value中的数据序列化成为json格式字符串
         std::string body;
-        bool ret = json_util::serialize(req, body);
+        json_util::serialize(req, body);
 
         // 2. 获取房间中的用户的通信连接，并且响应信息
         wsserver_t::connection_ptr white_conn = _online_user->get_conn_from_room(_white_id);
@@ -216,24 +230,24 @@ public:
 private:
     // 检查是否下棋完会有玩家胜利
     // 返回值：0表示没有玩家胜利，1表示白棋胜利，2表示黑棋胜利
-    uint64_t check_win(int row, int col, int color)
-    {   
-        // 从当前行、列、左斜、右斜线上判断是否有连续五个相同颜色的棋子
-        // 规定向上和右为1，向下和左为-1，不变为0
-        if(five(row, col, color, 0, 1) ||
-            five(row, col, color, 1, 0) ||
-            five(row, col, color, -1, -1) ||
-            five(row, col, color, -1, 1))
-        {
-            return (color == WHITE_CHESS ? _white_id : _black_id);
+    uint64_t check_win(int row, int col, int color) 
+    {
+        // 从下棋位置的四个不同方向上检测是否出现了5个及以上相同颜色的棋子（横行，纵列，正斜，反斜）
+        if (five(row, col, 0, 1, color) || 
+            five(row, col, 1, 0, color) ||
+            five(row, col, -1, 1, color)||
+            five(row, col, -1, -1, color)) {
+            //任意一个方向上出现了true也就是五星连珠，则设置返回值
+            return color == WHITE_CHESS ? _white_id : _black_id;
         }
         return 0;
     }
 
-    bool five(int row, int col, int color, int row_offset, int col_offset)
+    bool five(int row, int col, int row_offset, int col_offset, int color)
     {
-        int count = 0;
-        int tmprow = row, tmpcol = col;
+        int count = 1;
+        int tmprow = row + row_offset;
+        int tmpcol = col + col_offset;
         // 先正向检查
         while(tmprow >= 0 && tmprow < BOARD_ROW &&
                 tmpcol >= 0 && tmpcol < BOARD_COL &&
@@ -247,7 +261,8 @@ private:
         }
 
         // 再反向检查
-        tmprow = row - row_offset, tmpcol = col - col_offset;
+        tmprow = row - row_offset;
+        tmpcol = col - col_offset;
         while(tmprow >= 0 && tmprow < BOARD_ROW &&
                 tmpcol >= 0 && tmpcol < BOARD_COL &&
                 _board[tmprow][tmpcol] == color)
@@ -255,8 +270,8 @@ private:
             // 同色棋子数量++
             count++;
             // 检索位置继续向后偏移
-            row -= row_offset;
-            col -= col_offset;
+            tmprow -= row_offset;
+            tmpcol -= col_offset;
         }
 
         return (count >= 5);
