@@ -58,10 +58,13 @@
                 url: "/info",
                 type: "get",
                 success: function(res) {
-                    var info_html = "<p>" + "用户：" + res.username + " 积分：" + res.score + 
-                        "</br>" + "比赛场次：" + res.total_count + " 获胜场次：" + res.win_count + "</p>";
+                    var sl = 0;
+                    if(res.win_count != 0){ sl = parseInt(res.win_count * 100 / res.total_count); }
+                    var info_html = "<p>" + "用户: " + res.username + "  积分: " + res.score + 
+                    "</br>" + "比赛场次: " + res.total_count + "  获胜场次: " + res.win_count + 
+                        "  胜率: " + sl + "%" + "</p>";
                     var screen_div = document.getElementById("screen");
-                    screen_div.innerHTML = info_html;
+                    screen_div.innerHTML = info_html; 
                     
                     // 创建websocket连接
                     ws_hdl = new WebSocket(ws_url);
@@ -95,11 +98,11 @@
             }
             if (rsp_json["optype"] == "hall_ready") 
             {
-                alert("游戏大厅连接建立成功！");
+                console.log("游戏大厅连接建立成功！");
             }
             else if (rsp_json["optype"] == "match_success") 
             {
-                alert("对战匹配成功，进入游戏房间！");
+                console.log("对战匹配成功，进入游戏房间！");
                 location.replace("/game_room.html");
             }
             else if (rsp_json["optype"] == "match_start") 

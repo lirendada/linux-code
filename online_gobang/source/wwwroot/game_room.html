@@ -135,16 +135,6 @@
             console.log("click:" + JSON.stringify(chess_info));
         }
 
-        // 设置横幅文字函数
-        function set_screen(me) {
-            var screen_div = document.getElementById("screen");
-            if (me) {
-                screen_div.innerHTML = "轮到己方走棋...";
-            }else {
-                screen_div.innerHTML = "轮到对方走棋...";
-            }
-        }
-
         window.onbeforeunload = function() {
             ws_hdl.close();
         }
@@ -157,6 +147,20 @@
         ws_hdl.onerror = function() {
             console.log("房间长连接出错");
         }
+
+        // 设置横幅文字函数
+        function set_screen(me) {
+            var screen_div = document.getElementById("screen");
+            if (me) 
+            {
+                screen_div.innerHTML = "轮到我方走棋...";
+            }
+            else 
+            {
+                screen_div.innerHTML = "轮到对方走棋...";
+            }
+        }
+
         ws_hdl.onmessage = function(evt) 
         {
             // 1. 在收到room_ready之后进行房间的初始化
@@ -214,7 +218,6 @@
                     location.replace("/game_hall.html");
                 }
                 chess_area_div.appendChild(button_div);
-
             } 
             else if (info.optype == "chat") 
             {

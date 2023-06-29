@@ -87,7 +87,7 @@ private:
 
         // 3. 如果请求的是一个目录，那么就默认增加一个后缀login.html
         if(path.back() == '/')
-            path += "login.html";
+            path += "index.html";
 
         // 4. 读取文件内容，并且判断是否读写成功
         std::string body;
@@ -133,11 +133,11 @@ private:
         }
 
         // 3. 判断用户名和密码是否填写完整
-        if(body["username"].isNull() || body["password"].isNull())
+        if(body["username"].isNull() || body["password"].isNull() || body["username"].asString().empty() || body["password"].asString().empty())
         {
             // 填写不完整的话要返回错误响应
             DLOG("用户名密码不完整");
-            return http_response(conn, false, websocketpp::http::status_code::bad_request, "请输入用户名和密码");
+            return http_response(conn, false, websocketpp::http::status_code::bad_request, "请输入正确的用户名和密码");
         }
 
         // 4. 进行数据库的用户信息操作 -- 如果成功状态码返回200，失败返回400
@@ -165,7 +165,7 @@ private:
         }
 
         // 2. 验证用户名和密码是否都填写
-        if(body["username"].isNull() || body["password"].isNull())
+        if(body["username"].isNull() || body["password"].isNull() || body["username"].asString().empty() || body["password"].asString().empty())
         {
             DLOG("用户名密码不完整");
             return http_response(conn, false, websocketpp::http::status_code::bad_request, "请输入用户名和密码");

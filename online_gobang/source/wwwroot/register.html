@@ -31,6 +31,9 @@
             <div class="row">
                 <button id="submit" onclick="reg()">提交</button>
             </div>
+            <div class="row">
+                <button id="login" onclick="location.href='./login.html'">登录页面</button>
+            </div>
         </div>
     </div> 
     <script src="js/jquery.min.js"></script>
@@ -65,7 +68,7 @@
                     document.getElementById("user_name").value = "";
                     document.getElementById("password").value = "";
                     // alert(JSON.stringify(xhr))
-                    alert("该用户名已经存在，请重新输入用户名和密码！")
+                    alert("请重新输入正确用户名和密码：可能用户名已存在或者用户名违例！")
                 }
             })
         }
