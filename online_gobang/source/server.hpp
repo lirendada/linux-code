@@ -287,7 +287,7 @@ private:
         _session.set_session_expire_time(sp->getSessionID(), SESSION_FOREVER);
     }
 
-    // 游戏大厅的长连接建立成功处理函数
+    // 游戏房间的长连接建立成功处理函数
     void open_game_room(wsserver_t::connection_ptr& conn)
     {
         // 1. 获取当前客户端的session

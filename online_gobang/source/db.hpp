@@ -30,7 +30,7 @@ public:
     bool sign_up(Json::Value& user)
     {
 #define SIGN_UP "insert user values(null, '%s', password('%s'), 1000, 0, 0);"
-        // 1. 首先判断是否提供了用户名和密码
+        // 1. 首先判断是否提供了用户名和密码 -- 并且用户名密码不能为空
         if(user["username"].isNull() || user["password"].isNull() || user["username"].asString().empty() || user["password"].asString().empty())
         {
             DLOG("user didn't enter an username or password!");
@@ -55,7 +55,7 @@ public:
     bool login(Json::Value& user)
     {
 #define LOGIN_SQL "select id, score, total_count, win_count from user where username='%s' and password=password('%s');"
-        // 1. 首先判断是否提供了用户名和密码
+        // 1. 首先判断是否提供了用户名和密码 -- 并且用户名密码不能为空
         if(user["username"].isNull() || user["password"].isNull() || user["username"].asString().empty() || user["password"].asString().empty())
         {
             DLOG("user didn't enter an username or password!");
