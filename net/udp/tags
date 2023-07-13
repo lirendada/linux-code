@@ -1,0 +1,114 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+BIND_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+CLOSE_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+CLOSE_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Client	udpClient.hpp	/^namespace Client$/;"	n
+Client::CLOSE_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+Client::SEND_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+Client::SOCKET_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+Client::USAGE_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+Client::udpClient	udpClient.hpp	/^    class udpClient$/;"	c	namespace:Client
+Client::udpClient::_quit	udpClient.hpp	/^        bool _quit;$/;"	m	class:Client::udpClient	access:private
+Client::udpClient::_reader	udpClient.hpp	/^        pthread_t _reader;$/;"	m	class:Client::udpClient	access:private
+Client::udpClient::_serverIP	udpClient.hpp	/^        string _serverIP;$/;"	m	class:Client::udpClient	access:private
+Client::udpClient::_serverPort	udpClient.hpp	/^        uint16_t _serverPort;$/;"	m	class:Client::udpClient	access:private
+Client::udpClient::_socketfd	udpClient.hpp	/^        int _socketfd; $/;"	m	class:Client::udpClient	access:private
+Client::udpClient::initClient	udpClient.hpp	/^        void initClient()$/;"	f	class:Client::udpClient	access:public	signature:()
+Client::udpClient::recv_routine	udpClient.hpp	/^        static void* recv_routine(void* args)$/;"	f	class:Client::udpClient	access:public	signature:(void* args)
+Client::udpClient::run	udpClient.hpp	/^        void run()$/;"	f	class:Client::udpClient	access:public	signature:()
+Client::udpClient::udpClient	udpClient.hpp	/^        udpClient(const string& ip, const uint16_t port)$/;"	f	class:Client::udpClient	access:public	signature:(const string& ip, const uint16_t port)
+MAXSIZE	udpServer.hpp	/^    static const int MAXSIZE = 1024; \/\/ 接收到的数据最大值$/;"	m	namespace:Server
+NOTFOUND_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+OPEN_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+SEND_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+SEND_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+SOCKET_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+SOCKET_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server	udpServer.hpp	/^namespace Server$/;"	n
+Server::BIND_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server::CLOSE_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server::MAXSIZE	udpServer.hpp	/^    static const int MAXSIZE = 1024; \/\/ 接收到的数据最大值$/;"	m	namespace:Server
+Server::NOTFOUND_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server::OPEN_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server::SEND_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server::SOCKET_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server::USAGE_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Server::defaultIP	udpServer.hpp	/^    static const string defaultIP = "0.0.0.0"; \/\/ 默认设为0，表示接收任意IP$/;"	m	namespace:Server
+Server::udpServer	udpServer.hpp	/^    class udpServer$/;"	c	namespace:Server
+Server::udpServer::_callback	udpServer.hpp	/^        func_t _callback; \/\/ 服务端要完成的业务$/;"	m	class:Server::udpServer	access:private
+Server::udpServer::_ip	udpServer.hpp	/^        string _ip;     \/\/ 当前服务端的ip，但是作为一个服务器，一般都是将ip设为全0，代表任意ip都能访问$/;"	m	class:Server::udpServer	access:private
+Server::udpServer::_port	udpServer.hpp	/^        uint16_t _port; \/\/ 当前服务端进程的端口号$/;"	m	class:Server::udpServer	access:private
+Server::udpServer::_socketfd	udpServer.hpp	/^        int _socketfd;  \/\/ 套接字文件的文件描述符$/;"	m	class:Server::udpServer	access:private
+Server::udpServer::initServer	udpServer.hpp	/^        void initServer()$/;"	f	class:Server::udpServer	access:public	signature:()
+Server::udpServer::start	udpServer.hpp	/^        void start()$/;"	f	class:Server::udpServer	access:public	signature:()
+Server::udpServer::udpServer	udpServer.hpp	/^        udpServer(func_t callback, const uint16_t port, const string& ip = defaultIP)$/;"	f	class:Server::udpServer	access:public	signature:(func_t callback, const uint16_t port, const string& ip = defaultIP)
+Server::udpServer::~udpServer	udpServer.hpp	/^        ~udpServer()$/;"	f	class:Server::udpServer	access:public	signature:()
+USAGE_ERR	udpClient.hpp	/^    enum { USAGE_ERR = 1, SEND_ERR, SOCKET_ERR, CLOSE_ERR };$/;"	e	enum:Client::__anon1
+USAGE_ERR	udpServer.hpp	/^    enum { USAGE_ERR = 1, BIND_ERR, SOCKET_ERR, CLOSE_ERR, OPEN_ERR, NOTFOUND_ERR, SEND_ERR };$/;"	e	enum:Server::__anon2
+Usage	udpClient.cc	/^static void Usage(string proc)$/;"	f	file:	signature:(string proc)
+Usage	udpServer.cc	/^static void Usage(string proc)$/;"	f	file:	signature:(string proc)
+User	onlineUser.hpp	/^    User(const string& ip, uint16_t port) : _ip(ip), _port(port)$/;"	f	class:User	access:public	signature:(const string& ip, uint16_t port)
+User	onlineUser.hpp	/^class User$/;"	c
+User::User	onlineUser.hpp	/^    User(const string& ip, uint16_t port) : _ip(ip), _port(port)$/;"	f	class:User	access:public	signature:(const string& ip, uint16_t port)
+User::_ip	onlineUser.hpp	/^    string _ip;$/;"	m	class:User	access:private
+User::_port	onlineUser.hpp	/^    uint16_t _port;$/;"	m	class:User	access:private
+User::getip	onlineUser.hpp	/^    string& getip() { return _ip; }$/;"	f	class:User	access:public	signature:()
+User::getport	onlineUser.hpp	/^    uint16_t getport() { return _port; }$/;"	f	class:User	access:public	signature:()
+User::~User	onlineUser.hpp	/^    ~User()$/;"	f	class:User	access:public	signature:()
+_callback	udpServer.hpp	/^        func_t _callback; \/\/ 服务端要完成的业务$/;"	m	class:Server::udpServer	access:private
+_ip	onlineUser.hpp	/^    string _ip;$/;"	m	class:User	access:private
+_ip	udpServer.hpp	/^        string _ip;     \/\/ 当前服务端的ip，但是作为一个服务器，一般都是将ip设为全0，代表任意ip都能访问$/;"	m	class:Server::udpServer	access:private
+_port	onlineUser.hpp	/^    uint16_t _port;$/;"	m	class:User	access:private
+_port	udpServer.hpp	/^        uint16_t _port; \/\/ 当前服务端进程的端口号$/;"	m	class:Server::udpServer	access:private
+_quit	udpClient.hpp	/^        bool _quit;$/;"	m	class:Client::udpClient	access:private
+_reader	udpClient.hpp	/^        pthread_t _reader;$/;"	m	class:Client::udpClient	access:private
+_serverIP	udpClient.hpp	/^        string _serverIP;$/;"	m	class:Client::udpClient	access:private
+_serverPort	udpClient.hpp	/^        uint16_t _serverPort;$/;"	m	class:Client::udpClient	access:private
+_socketfd	udpClient.hpp	/^        int _socketfd; $/;"	m	class:Client::udpClient	access:private
+_socketfd	udpServer.hpp	/^        int _socketfd;  \/\/ 套接字文件的文件描述符$/;"	m	class:Server::udpServer	access:private
+_users	onlineUser.hpp	/^    unordered_map<string, User> _users;$/;"	m	class:onlineUser	access:private
+addOnlineUser	onlineUser.hpp	/^    void addOnlineUser(const string& ip, uint16_t port)$/;"	f	class:onlineUser	access:public	signature:(const string& ip, uint16_t port)
+broadcastMessage	onlineUser.hpp	/^    void broadcastMessage(int sockfd, const string& ip, uint16_t port, const string& message)$/;"	f	class:onlineUser	access:public	signature:(int sockfd, const string& ip, uint16_t port, const string& message)
+cc	makefile	/^cc=g++$/;"	m
+debugPrint	udpServer.cc	/^static void debugPrint()$/;"	f	file:	signature:()
+defaultIP	udpServer.hpp	/^    static const string defaultIP = "0.0.0.0"; \/\/ 默认设为0，表示接收任意IP$/;"	m	namespace:Server
+delOnlineUser	onlineUser.hpp	/^    void delOnlineUser(const string& ip, uint16_t port)$/;"	f	class:onlineUser	access:public	signature:(const string& ip, uint16_t port)
+dict	udpServer.cc	/^static unordered_map<string, string> dict;   \/\/ 存放单词的容器$/;"	v	file:
+dictpath	udpServer.cc	/^static const string dictpath = ".\/dict.txt"; \/\/ 单词文件的路径$/;"	v	file:
+getip	onlineUser.hpp	/^    string& getip() { return _ip; }$/;"	f	class:User	access:public	signature:()
+getport	onlineUser.hpp	/^    uint16_t getport() { return _port; }$/;"	f	class:User	access:public	signature:()
+handlerMessage1	udpServer.cc	/^void handlerMessage1(int sockfd, string clientip, uint16_t clientport, string message)$/;"	f	signature:(int sockfd, string clientip, uint16_t clientport, string message)
+handlerMessage2	udpServer.cc	/^void handlerMessage2(int sockfd, string clientip, uint16_t clientport, string cmd)$/;"	f	signature:(int sockfd, string clientip, uint16_t clientport, string cmd)
+handlerMessage3	udpServer.cc	/^void handlerMessage3(int sockfd, string clientip, uint16_t clientport, string cmd)$/;"	f	signature:(int sockfd, string clientip, uint16_t clientport, string cmd)
+initClient	udpClient.hpp	/^        void initClient()$/;"	f	class:Client::udpClient	access:public	signature:()
+initServer	udpServer.hpp	/^        void initServer()$/;"	f	class:Server::udpServer	access:public	signature:()
+initdict	udpServer.cc	/^static void initdict(char Separator)$/;"	f	file:	signature:(char Separator)
+isOnlineUser	onlineUser.hpp	/^    bool isOnlineUser(const string& ip, uint16_t port)$/;"	f	class:onlineUser	access:public	signature:(const string& ip, uint16_t port)
+main	udpClient.cc	/^int main(int argc, char* argv[])$/;"	f	signature:(int argc, char* argv[])
+main	udpServer.cc	/^int main(int argc, char* argv[])$/;"	f	signature:(int argc, char* argv[])
+onlineUser	onlineUser.hpp	/^    onlineUser() {}$/;"	f	class:onlineUser	access:public	signature:()
+onlineUser	onlineUser.hpp	/^class onlineUser$/;"	c
+onlineUser::_users	onlineUser.hpp	/^    unordered_map<string, User> _users;$/;"	m	class:onlineUser	access:private
+onlineUser::addOnlineUser	onlineUser.hpp	/^    void addOnlineUser(const string& ip, uint16_t port)$/;"	f	class:onlineUser	access:public	signature:(const string& ip, uint16_t port)
+onlineUser::broadcastMessage	onlineUser.hpp	/^    void broadcastMessage(int sockfd, const string& ip, uint16_t port, const string& message)$/;"	f	class:onlineUser	access:public	signature:(int sockfd, const string& ip, uint16_t port, const string& message)
+onlineUser::delOnlineUser	onlineUser.hpp	/^    void delOnlineUser(const string& ip, uint16_t port)$/;"	f	class:onlineUser	access:public	signature:(const string& ip, uint16_t port)
+onlineUser::isOnlineUser	onlineUser.hpp	/^    bool isOnlineUser(const string& ip, uint16_t port)$/;"	f	class:onlineUser	access:public	signature:(const string& ip, uint16_t port)
+onlineUser::onlineUser	onlineUser.hpp	/^    onlineUser() {}$/;"	f	class:onlineUser	access:public	signature:()
+onlineUser::~onlineUser	onlineUser.hpp	/^    ~onlineUser() {}$/;"	f	class:onlineUser	access:public	signature:()
+recv_routine	udpClient.hpp	/^        static void* recv_routine(void* args)$/;"	f	class:Client::udpClient	access:public	signature:(void* args)
+reload	udpServer.cc	/^static void reload(int signo)$/;"	f	file:	signature:(int signo)
+run	udpClient.hpp	/^        void run()$/;"	f	class:Client::udpClient	access:public	signature:()
+start	udpServer.hpp	/^        void start()$/;"	f	class:Server::udpServer	access:public	signature:()
+udpClient	udpClient.hpp	/^        udpClient(const string& ip, const uint16_t port)$/;"	f	class:Client::udpClient	access:public	signature:(const string& ip, const uint16_t port)
+udpClient	udpClient.hpp	/^    class udpClient$/;"	c	namespace:Client
+udpServer	udpServer.hpp	/^        udpServer(func_t callback, const uint16_t port, const string& ip = defaultIP)$/;"	f	class:Server::udpServer	access:public	signature:(func_t callback, const uint16_t port, const string& ip = defaultIP)
+udpServer	udpServer.hpp	/^    class udpServer$/;"	c	namespace:Server
+users	udpServer.cc	/^onlineUser users;$/;"	v
+~User	onlineUser.hpp	/^    ~User()$/;"	f	class:User	access:public	signature:()
+~onlineUser	onlineUser.hpp	/^    ~onlineUser() {}$/;"	f	class:onlineUser	access:public	signature:()
+~udpServer	udpServer.hpp	/^        ~udpServer()$/;"	f	class:Server::udpServer	access:public	signature:()

@@ -163,6 +163,7 @@ int main(int argc, char* argv[])
 {
     if(argc != 2) // 如果参数传递不为两个，则提醒使用者，并且退出程序
     {
+        struct iovec i;
         Usage(argv[0]);
         exit(USAGE_ERR);
     }
