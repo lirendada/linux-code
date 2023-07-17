@@ -4,7 +4,8 @@ using namespace Client;
 
 static void Usage(string proc)
 {
-    cout << "\nUsage:\n\t" << proc << " destination_ip destination_port\n\n";
+    // 这里用cerr是为了配合聊天室的输入框和显示框的分离，stderr负责的是输入框，所以我们要在提示框进行用法提醒
+    cerr << "\nUsage:\n\t" << proc << " destination_ip destination_port\n\n"; 
 }
 
 int main(int argc, char* argv[])

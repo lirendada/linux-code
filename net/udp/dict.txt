@@ -1,0 +1,5 @@
+apple:苹果
+liren:利刃
+banana:香蕉
+tcp:传输控制协议
+nihao:你好呀
