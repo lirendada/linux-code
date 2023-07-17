@@ -43,6 +43,11 @@ namespace Server
 
     class tcpServer
     {
+    private:
+        string _ip;
+        uint16_t _port;
+        int _listenfd;
+        
     public:
         tcpServer(const uint16_t& port = gport) : _port(port), _listenfd(-1)
         {}
@@ -150,42 +155,5 @@ namespace Server
         //     delete td;
         //     return nullptr;
         // }
-
-        ~tcpServer()
-        {}
-        
-        // 将该函数放到Task.hpp中
-        // void service_IO(int sockfd)
-        // {
-        //     char buffer[1024];
-        //     while(true)
-        //     {
-        //         ssize_t n = read(sockfd, buffer, sizeof(buffer) - 1);
-        //         if(n == -1)
-        //         {
-        //             logMessage(Level::ERROR, "read error");
-        //             exit(READ_ERR);
-        //         }
-        //         else if(n == 0) // 代表客户端退出
-        //         {
-        //             logMessage(Level::NORMAL, "client quit and I must quit, too!");
-        //             break;
-        //         }
-        //         else
-        //         {
-        //             buffer[n] = '\0';
-        //             cout << "receive message is: " << buffer << endl;
-
-        //             // 写回给客户端
-        //             string outbuffer = buffer;
-        //             outbuffer += "server[echo]";
-        //             write(sockfd, outbuffer.c_str(), outbuffer.size());
-        //         }
-        //     }
-        // }  
-    private:
-        string _ip;
-        uint16_t _port;
-        int _listenfd;
     };
 }
