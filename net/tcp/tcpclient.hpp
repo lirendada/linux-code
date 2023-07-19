@@ -57,10 +57,10 @@ namespace Client
                 {
                     cout << "Enter# ";
                     getline(cin, msg);
-                    write(_socketfd, msg.c_str(), msg.size());
+                    send(_socketfd, msg.c_str(), msg.size(), 0);
 
                     char buffer[NUM];
-                    int n = read(_socketfd, buffer, sizeof(buffer)-1);
+                    int n = recv(_socketfd, buffer, sizeof(buffer)-1, 0);
                     if(n > 0)
                     {
                         // 目前我们把读到的数据当成字符串, 截止目前

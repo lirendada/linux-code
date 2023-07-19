@@ -24,7 +24,7 @@ public:
             // 使用ThreadData类装载线程池和名称，方便后面打印
             ThreadData<T>* td = new ThreadData<T>(this, t->threadname());
             t->start(handlerTask, td);  
-            // std::cout << t->threadname() << " start......" << std::endl;
+            std::cout << t->threadname() << " start......" << std::endl;
             logMessage(Level::DEBUG, "%s start......", t->threadname().c_str());
         }
     }
@@ -55,19 +55,26 @@ public:
             delete t;
     }
 
-    static ThreadPool<T>* GetInstance()
+    // static ThreadPool<T>* GetInstance()
+    // {
+    //     // 使用双层判断来减少加锁开销
+    //     if(_ptp == nullptr)
+    //     {
+    //         pthread_mutex_lock(&_static_mutex);
+    //         if(_ptp == nullptr)
+    //         {
+    //             _ptp = new ThreadPool<T>();
+    //         }
+    //         pthread_mutex_unlock(&_static_mutex);
+    //     }
+    //     return _ptp;
+    // }
+
+    // c++11方式获取单例对象
+    static ThreadPool<T>& GetInstance()
     {
-        // 使用双层判断来减少加锁开销
-        if(_ptp == nullptr)
-        {
-            pthread_mutex_lock(&_static_mutex);
-            if(_ptp == nullptr)
-            {
-                _ptp = new ThreadPool<T>();
-            }
-            pthread_mutex_unlock(&_static_mutex);
-        }
-        return _ptp;
+        static ThreadPool<T> single_object;
+        return single_object;
     }
 private:
     // 封掉拷贝构造和赋值重载
@@ -112,13 +119,13 @@ private:
     pthread_cond_t _cond;          // 用来线程等待和唤醒线程的条件变量
     pthread_mutex_t _mutex;        // 互斥锁，保护共享资源--任务队列
 
-    static pthread_mutex_t _static_mutex; // 静态互斥锁，来保护生成单例模式
-    static ThreadPool<T>* _ptp;  // 静态对象指针，来生成单例对象
+    // static pthread_mutex_t _static_mutex; // 静态互斥锁，用来保护生成单例模式
+    // static ThreadPool<T>* _ptp;           // 静态对象指针，用来生成单例对象
 };
 
-// 静态对象类外初始化
-template <class T>
-pthread_mutex_t ThreadPool<T>::_static_mutex;
+// // 静态对象类外初始化
+// template <class T>
+// pthread_mutex_t ThreadPool<T>::_static_mutex;
 
-template <class T>
-ThreadPool<T>* ThreadPool<T>::_ptp = nullptr;
+// template <class T>
+// ThreadPool<T>* ThreadPool<T>::_ptp = nullptr;

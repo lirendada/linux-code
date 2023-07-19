@@ -27,8 +27,8 @@ namespace Server
         WRITE_ERR
     };
 
-    const int gbacklog = 5;
-    const uint16_t gport = 8080;
+    const int gbacklog = 5;      // 全连接队列的最大长度
+    const uint16_t gport = 8080; // 默认端口号
 
     class tcpServer;
     class ThreadData
@@ -44,9 +44,9 @@ namespace Server
     class tcpServer
     {
     private:
-        string _ip;
-        uint16_t _port;
-        int _listenfd;
+        string _ip;      // ip地址
+        uint16_t _port;  // 端口号
+        int _listenfd;   // 监听文件描述符
         
     public:
         tcpServer(const uint16_t& port = gport) : _port(port), _listenfd(-1)
@@ -54,7 +54,7 @@ namespace Server
 
         void initServer()
         {
-            // 1.创建套接字
+            // 1. 创建套接字
             _listenfd = socket(AF_INET, SOCK_STREAM, 0);
             if(_listenfd == -1)
             {
@@ -63,7 +63,7 @@ namespace Server
             }
             logMessage(Level::NORMAL, "socket success: %d", _listenfd);
 
-            // 2.绑定信息
+            // 2. 绑定信息
             struct sockaddr_in local;
             memset(&local, 0, sizeof local);
             local.sin_family = AF_INET;
@@ -77,7 +77,7 @@ namespace Server
             }
             logMessage(Level::NORMAL, "bind success");
 
-            // 3.设置listen监听状态
+            // 3. 设置listen监听状态
             if(listen(_listenfd, gbacklog) < 0)
             {
                 logMessage(Level::FATAL, "listen error");
@@ -89,13 +89,13 @@ namespace Server
         void start()
         {
             // 初始化线程池
-            ThreadPool<Task>::GetInstance()->run();
+            ThreadPool<Task>::GetInstance().run();
             logMessage(Level::NORMAL, "Thread init success");
 
             // signal(SIGCHLD, SIG_IGN);
             while(true)
             {
-                // 4.若监听到客户端的信息之后，进行accept
+                // 4. 若监听到客户端的信息之后，进行accept
                 struct sockaddr_in peer;
                 socklen_t len = sizeof(peer);
                 int server_sockfd = accept(_listenfd, (struct sockaddr*)&peer, &len);
@@ -105,42 +105,49 @@ namespace Server
                     continue;
                 }
                 logMessage(Level::NORMAL, "accept success, get new sockfd: %d", server_sockfd);
-                cout << "server_sockfd: " << server_sockfd << endl;
+                cout << "accept success, get new sockfd: " << server_sockfd << endl;
 
                 // version1，客户端之间的通信都是阻塞的
                 // service_IO(server_sockfd);
-                // close(server_sockfd); // 对使用完的套接字需要关闭，不然导致描述符泄漏问题
+                // close(server_sockfd);   // 对使用完的套接字需要关闭，不然导致描述符泄漏问题
 
-                // version2 多进程版本，主要学习思想，借助的是孙子进程或者不被父进程负责回收的子进程
+                // version2 多进程版本，主要学习思想，借助的是不被父进程负责回收的子进程或者孙子进程
                 // pid_t id= fork();
                 // if(id == 0)
                 // {
-                //     // children
+                //     // 子进程：
                 //     close(_listenfd); // 关闭子进程拷贝的父进程中不必要的描述符比如这里的监听，以免误操作
+                    
                 //     // if(fork() > 0) // 让当前的子进程退出
                 //     //     exit(1); 
-                //     // 也就是说到这里就剩下一个孙子进程，而它变成了孤儿进程，由OS来管理回收
+                //     // 也就是说到下面就剩下一个孙子进程，而它变成了孤儿进程，由OS来管理回收
+                //     // 这是属于第二种方式
+                    
                 //     service_IO(server_sockfd); 
                 //     close(server_sockfd);
                 //     exit(0);
                 // }
-                // father，如果不是用信号忽略子进程的捕捉的话，那么就要等待
-                // 并且要阻塞等待，因为非阻塞等待的话如果描述符用完了，但是轮询时候访问到上面的accept
-                // accept的返回值就是错误的了，那么server_sockfd就失效了，也就是回收不了进程了
-                // close(server_sockfd); 
+                // 父进程：下面注释部分是第二种方式
+                // 如果不是用信号忽略子进程的捕捉的话，那么就要等待，并且要阻塞等待
+                // 因为非阻塞等待的话，如果描述符用完了，但是轮询时候访问到上面的accept函数
+                // accept的返回值就是错误的也就是-1，那么就会一直continue了，造成无效的死循环，也就是回收不了进程了
+                
+                // close(server_sockfd); // 注意这里描述符要关，防止文件不够用
+                
                 // pid_t ret = waitpid(id, nullptr, 0); 
                 // if(ret > 0)
                 //     cout << "wait success, this child id is " << ret << endl;
 
                 // version3 多线程版本，不能线程等待，
-                // 因为这样子就变成了线程阻塞的形式了，最好就是用线程分离
+                // 因为这样子就变成了线程阻塞的形式了，所以最好就是用线程分离
+                // 并且注意主线程不能关闭文件，不然新线程也会收到影响
                 // pthread_t tid;
                 // ThreadData* td = new ThreadData(this, server_sockfd);
                 // pthread_create(&tid, nullptr, thread_routine, td);
 
                 // version4 线程池版本，套用我们以前写的线程池
                 // 并且这是一个单例对象，初始化在上面，这里是调用put了
-                ThreadPool<Task>::GetInstance()->put(Task(server_sockfd, service_IO));
+                ThreadPool<Task>::GetInstance().put(Task(server_sockfd, service_IO));
             }
         }
 

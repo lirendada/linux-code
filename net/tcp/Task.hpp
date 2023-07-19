@@ -12,13 +12,13 @@ void service_IO(int sockfd)
     char buffer[1024];
     while(true)
     {
-        ssize_t n = read(sockfd, buffer, sizeof(buffer) - 1);
+        ssize_t n = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
         if(n == -1)
         {
-            logMessage(Level::ERROR, "read error");
+            logMessage(Level::ERROR, "recv error");
             exit(1);
         }
-        else if(n == 0) // 代表客户端退出
+        else if(n == 0) // 返回值为0表示客户端退出
         {
             logMessage(Level::NORMAL, "client quit and I must quit, too!");
             break;
@@ -30,8 +30,8 @@ void service_IO(int sockfd)
 
             // 写回给客户端
             string outbuffer = buffer;
-            outbuffer += "server[echo]";
-            write(sockfd, outbuffer.c_str(), outbuffer.size());
+            outbuffer += " server[echo]";
+            send(sockfd, outbuffer.c_str(), outbuffer.size(), 0);
         }
     }
     close(sockfd);

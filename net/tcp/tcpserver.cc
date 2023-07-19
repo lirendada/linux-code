@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
     unique_ptr<tcpServer> tcpserver(new tcpServer(port));
     tcpserver->initServer();
 
-    daemonSelf(); // 将服务端变成守护进程
+    // daemonSelf(); // 将服务端变成守护进程
 
     tcpserver->start();
     return 0;
