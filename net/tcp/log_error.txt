@@ -1,0 +1,2 @@
+[FATAL][2023-07-19 22:30:20][26670][log.hpp:44]bind error
+[ERROR][2023-07-19 23:40:36][28059][log.hpp:44]recv error
