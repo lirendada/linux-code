@@ -9,14 +9,75 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include "protocol.hpp"
+#include "log.hpp"
 using namespace std;
 
 namespace Client
 {
     const int NUM = 1024;
+    
+    // 类外实现，保证与服务器解耦
+    void handler(int sockfd)
+    {
+        string msg;      // 要发送的消息
+        string inbuffer; // 接收缓冲区
+        while(true)
+        {
+            cout << "Enter>>> ";
+            getline(cin, msg); // 输入的消息形式如"1+1"、"212345*131"
+            
+            // 1. 首先客户端肯定是创建请求并且发送给服务端，发送之前要先序列化，
+            Request req;
+            if(!get_req_from_string(msg, req))
+            {
+                logMessage(Level::ERROR, "Your expression format input error!"); // 输入格式错误
+                continue;
+            }
+            string send_body;
+            if(!req.serialize(&send_body)) // 序列化
+            {
+                logMessage(Level::ERROR, "serialize error!");
+                continue;
+            }
+
+            // 2. 然后加上自定义协议再发送
+            string send_string = addRule(send_body); 
+            send(sockfd, send_string.c_str(), send_string.size(), 0); // 这里有问题，后面再说
+
+            // 3. 接收来自服务端的响应，和服务端一样，使用协议头文件中的recvPackage函数来替我们完成即可
+            string recv_string;
+            if(!recvPackage(sockfd, inbuffer, &recv_string))
+                continue;   // 没有读到完整的报文则继续读
+
+            // 4. 读到响应之后进行去除协议
+            string recv_body;
+            if(!delRule(recv_string, &recv_body)) // 去除协议规则
+            {
+                logMessage(Level::ERROR, "delRule error!");
+                continue;
+            }
+
+            // 5. 并且进行反序列化
+            Response resp;
+            if(!resp.deserialize(recv_body)) // 反序列化
+            {
+                logMessage(Level::ERROR, "deserialize error!");
+                continue;
+            }
+
+            // 6. 打印响应报文的数据
+            cout << "exitcode: " << resp._exitcode << endl;
+            cout << "result: " << resp._result << endl;
+        }
+    }
 
     class tcpClient
     {
+    private:
+        int _socketfd;
+        string _destip;
+        uint16_t _destport;
+
     public:
         tcpClient(const string& ip, const uint16_t& port)
             :_destip(ip), _destport(port), _socketfd(0)
@@ -31,10 +92,7 @@ namespace Client
                 std::cerr << "socket create error" << std::endl;
                 exit(2);
             }
-            // 2. tcp的客户端要不要bind？要的！ 要不要显示的bind？不要！这里尤其是client port要让OS自定随机指定！
-            // 3. 要不要listen？不用！
-            // 4. 要不要accept? 不用！
-            // 5. 要什么呢？？要发起连接！
+            // 2. tcp客户端不需要手动bind
         }
 
         void run()
@@ -45,69 +103,12 @@ namespace Client
             server.sin_port = htons(_destport);
             server.sin_addr.s_addr = inet_addr(_destip.c_str());
 
-            // 连接使用的是connect函数
+            // 使用connect函数发送建立连接请求
             int n = connect(_socketfd, (struct sockaddr*)&server, sizeof server);
             if(n == -1)
-            {
-                cerr << "socket connect error" << std::endl;
-            }
+                logMessage(Level::ERROR, "socket connect error!");
             else
-            {
-                string msg;
-                string inbuffer;
-                while(true)
-                {
-                    cout << "Enter>>> ";
-                    getline(cin, msg); // 比如"1+1"、"212345*131"
-
-                    // 1. 首先肯定是创建请求并且发送给服务端
-                    // 1.1 发送之前要先序列化，然后加上自定义规则再发送
-                    Request req = getMsg(msg); // 将键盘输入转化为Request
-                    string send_body;
-                    if(!req.serialize(&send_body)) // 序列化
-                        continue;
-                    string send_string = addRule(send_body); // 添加自定义协议
-                    send(_socketfd, send_string.c_str(), send_string.size(), 0); // 发送，有bug，后面再说
-
-                    // 2. 接收来自服务端的响应，和服务端一样，使用recvPackage来替我们完成即可
-                    string recv_string;
-                    if(!recvPackage(_socketfd, inbuffer, &recv_string))
-                        continue; // 没有读到完整的报文则继续读
-
-                    // 读到之后进行去除协议和反序列化
-                    string recv_body;
-                    if(!delRule(recv_string, &recv_body)) // 去除协议规则
-                        continue;
-                    Response resp;
-                    if(!resp.deserialize(recv_body)) // 反序列化
-                        continue;
-
-                    // 3. 打印响应报文的数据
-                    cout << "exitcode: " << resp._exitcode << endl;
-                    cout << "result: " << resp._result << endl;
-                }
-            }
-        }
-
-        Request getMsg(const string msg)
-        {
-            string leftnum, rightnum;
-            char op;
-            int status = 0; // 0表示左操作数范围，1表示右操作数范围
-            for(int i = 0; i < msg.size(); ++i)
-            {
-                if(!isdigit(msg[i])) // 说明遇到操作符
-                {
-                    op = msg[i];
-                    status = 1;
-                    continue;
-                }
-                if(status == 0)
-                    leftnum += msg[i];
-                else
-                    rightnum += msg[i];
-            }
-            return Request(stoi(leftnum), stoi(rightnum), op);
+                handler(_socketfd); // 直接调用处理函数
         }
 
         ~tcpClient()
@@ -115,9 +116,5 @@ namespace Client
             if(_socketfd >= 0) 
                 close(_socketfd);
         }
-    private:
-        int _socketfd;
-        string _destip;
-        uint16_t _destport;
     };
 }

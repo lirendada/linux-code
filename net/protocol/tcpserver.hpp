@@ -29,57 +29,60 @@ namespace Server
     const int gbacklog = 5;
     const uint16_t gport = 8080;
 
-    // req：输入型参数
-    // resp：输出型参数
+    // req：请求，输入型参数
+    // resp：响应，输出型参数
     typedef function<bool(const Request& req, Response& resp)> func_t;
 
-    // 保证解耦
+    // 类外实现，保证与服务器解耦
     void handlerEntery(int sockfd, func_t func)
     {
         string recvbuffer;
         while(true)
         {
             // 1. 读取客户端发来的数据
-            // 1.1 你怎么保证你读到的消息是【一个】完整的请求？？？由recvPackage帮我们完成
+            //      1.1 你怎么保证你读到的消息是【一个】完整的请求？？？这由协议头文件中的recvPackage函数帮我们完成
             string recv_string;
             if(!recvPackage(sockfd, recvbuffer, &recv_string))
                 return;
-            std::cout << "带报头的请求：\n" << recv_string << std::endl;
-            // 1.2 要将收到的请求进行去掉自定义规则部分
+            std::cout << "带协议报头的请求：\n" << recv_string << std::endl;
+
+            //      1.2 将接收到的请求去掉协议规则部分即去掉协议报头。这由协议头文件中的delRule函数帮我们完成
             string request_string;
             if(!delRule(recv_string, &request_string))
                 return;
-            std::cout << "去掉报头的正文：\n" << request_string << std::endl;
+            std::cout << "去掉协议报头的正文：\n" << request_string << std::endl;
 
-            // 2. 对请求request进行反序列化
-            // 2.1 得到一个结构化的请求对象
+            // 2. 对请求request进行反序列化，得到一个结构化的请求对象
             Request req;
             if(!req.deserialize(request_string))
                 return;
 
-            // 3. 计算处理，通过对象获取对应的数据进行计算 --- 业务逻辑
-            // 3.1 得到一个结构化的响应
+            // 3. 计算处理，通过对象获取对应的数据进行计算，得到一个结构化的响应 --- 业务逻辑
             Response resp;
-            func(req, resp);
+            func(req, resp); // 通过回调函数实现
 
-            // 4. 对响应response进行序列化
-            // 4.1 得到一个序列化的“字符串”
+            // 4. 对响应response进行序列化，得到一个序列化的“字符串”
             string response_string;
             if(!resp.serialize(&response_string))
                 return;
-            std::cout << "计算完成, 序列化响应: " <<  response_string << std::endl;
+            std::cout << "计算完成, 序列化后的响应：\n " <<  response_string << std::endl;
 
             // 5. 然后再发送响应
-            // 5.1 发送之前先加上自定义规则
+            //      5.1 发送之前先加上自定义协议包头，这由协议头文件中的addRule函数帮我们完成
             string send_string = addRule(response_string);
             std::cout << "加上报头，构建完成完整的响应：\n" <<  send_string << std::endl;
-            // 5.2 再将包装好的数据发送出去
+
+            //      5.2 再将封装好的数据发送出去
             send(sockfd, send_string.c_str(), send_string.size(), 0); // 这里有问题，后面再说
         }
     }
 
     class tcpServer
     {
+    private:
+        uint16_t _port;
+        int _listenfd;
+
     public:
         tcpServer(const uint16_t& port = gport) : _port(port), _listenfd(0)
         {}
@@ -120,6 +123,7 @@ namespace Server
 
         void start(func_t func)
         {
+            signal(SIGCHLD, SIG_IGN);
             while(true)
             {
                 // 4.若监听到客户端的信息之后，进行accept
@@ -137,22 +141,14 @@ namespace Server
                 pid_t id= fork();
                 if(id == 0)
                 {
-                    close(_listenfd);
+                    close(_listenfd); // 子进程关闭监听描述符
                     handlerEntery(server_sockfd, func); // 执行我们的服务器处理函数
-                    close(server_sockfd);
+                    close(server_sockfd); // 业务处理结束后关闭通信描述符
                     exit(0);
                 }
+                // 父进程关闭通信描述符
                 close(server_sockfd); 
-                pid_t ret = waitpid(id, nullptr, 0); 
-                if(ret > 0)
-                    cout << "wait success, this child id is " << ret << endl;
             }
         }
-
-        ~tcpServer()
-        {}
-    private:
-        uint16_t _port;
-        int _listenfd;
     };
 }

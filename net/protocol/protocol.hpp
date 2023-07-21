@@ -20,10 +20,11 @@ enum{
 };
 
 // 接收客户端或者服务端发来的报文，该函数的目的是拿到一个完整的报文
+// 其中recv_string为输出型参数
 bool recvPackage(int sockfd, string& recvbuffer, string* recv_string)
 {
     // 为了让接收到的数据出了函数后不丢失，使用static来修饰缓冲区
-    // 不过这里也可以选择让recvbuffer被外部所持有，读取时传进来即可
+    // 不过这里也可以选择让recvbuffer被外部所持有，读取时传进来即可，方便外部打印
     // static string recvbuffer; 
     
     char tmpbuffer[1024];
@@ -49,7 +50,7 @@ bool recvPackage(int sockfd, string& recvbuffer, string* recv_string)
             // 说明至少我们接收到了一个完整的报文！
             // 如果不是的话，我们要继续循环去读取
             int package_size = pos + SEP_LINE_LEN*2 + body_size;
-            std::cout << "处理前#recvbuffer: \n" << recvbuffer << std::endl;
+            
             if(package_size > recvbuffer.size())
             {
                 cout << "你输入的消息，没有严格遵守我们的协议，正在等待后续的内容, continue" << endl;
@@ -60,8 +61,6 @@ bool recvPackage(int sockfd, string& recvbuffer, string* recv_string)
             // 那么就把它拿到，并且将其重缓冲区中删去
             *recv_string = recvbuffer.substr(0, package_size);
             recvbuffer.erase(0, package_size);
-
-            std::cout << "处理后#recvbuffer:\n " << recvbuffer << std::endl;
             break;
         }
         else
@@ -104,6 +103,10 @@ bool delRule(const string& package, string* body)
 class Request
 {
 public:
+    int _x;
+    int _y;  
+    char _op; // 运算符
+public:
     Request()
         :_x(0), _y(0), _op(0)
     {}
@@ -111,10 +114,11 @@ public:
         :_x(x), _y(y), _op(op)
     {}
 
-    //   序列化相当于：结构体 -》 字符串（更正确的说法是字节流）
+    // 序列化相当于：  结构体 -》 字符串（更正确的说法是字节流）
     // 反序列化相当于：字符串 -》 结构体
     // 1. 自己实现
     // 2. 用现成的库函数
+#define MYSELF
     bool serialize(string* out) // 输出型参数
     {
 #ifdef MYSELF
@@ -147,12 +151,12 @@ public:
         // 1.首先找到两个分隔符的位置
         auto left = in.find(SEP);
         auto right = in.rfind(SEP);
-        if(left == string::npos || right == string::npos || left == right)
+        if(left == string::npos || right == string::npos || left == right) // 没有两个空格说明格式错了直接false
             return false;
         if(right - (left+SEP_LEN) != 1) // 规定分隔符必须是一个字符的长度
             return false;
 
-        // 获取x和y的字符串，判断是否为空
+        // 获取x和y的字符串，并且判断是否为空
         string x_string = in.substr(0, left);
         string y_string = in.substr(right + SEP_LEN);
         if(x_string.empty() || y_string.empty())
@@ -173,15 +177,14 @@ public:
 #endif
         return true;
     }
-public:
-    int _x;
-    int _y;
-    char _op;
 };
 
 // 响应一般是服务端发给客户端的
 class Response
 {
+public:
+    int _exitcode; // 退出码，规定0表示计算成功，非0表示计算失败
+    int _result;   // 计算结果
 public:
     Response()
         :_exitcode(0), _result(0)
@@ -235,7 +238,39 @@ public:
 #endif
         return true;
     }
-public:
-    int _exitcode;
-    int _result;
 };
+
+
+// 将字符串转化为请求结构体的工具函数
+bool get_req_from_string(const string& msg, Request& req)
+{
+    string leftnum, rightnum;
+    char op;
+    int status = 0; // 0表示当前为左操作数范围，1表示当前为右操作数范围
+    bool op_occur = false;
+    for(int i = 0; i < msg.size(); ++i)
+    {
+        if(!isdigit(msg[i])) // 非数字的情况
+        {
+            // 如果不是操作符则直接false
+            if(msg[i] != '+' && msg[i] != '-' && msg[i] != '*' && msg[i] != '/' && msg[i] != '%')
+                return false;
+
+            op_occur = true; // 标志出现过操作符
+            op = msg[i];
+            status = 1;      // 变成右操作数范围
+            continue;
+        }
+        if(status == 0)
+            leftnum += msg[i];
+        else
+            rightnum += msg[i];
+    }
+
+    // 如果没出现过操作符直接false
+    if(!op_occur)
+        return false;
+
+    req._x = stoi(leftnum), req._y = stoi(rightnum), req._op = op;
+    return true;
+}
