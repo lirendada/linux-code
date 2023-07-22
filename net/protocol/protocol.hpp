@@ -100,6 +100,7 @@ bool delRule(const string& package, string* body)
 }
 
 // 请求一般是客户端给服务端的
+
 class Request
 {
 public:
@@ -118,7 +119,6 @@ public:
     // 反序列化相当于：字符串 -》 结构体
     // 1. 自己实现
     // 2. 用现成的库函数
-#define MYSELF
     bool serialize(string* out) // 输出型参数
     {
 #ifdef MYSELF
