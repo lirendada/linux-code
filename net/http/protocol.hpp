@@ -19,7 +19,7 @@ public:
     void parse()
     {
         // 1.从inbuffer中拿到第一行也就是请求行，其中分隔符为"\r\n"
-        string line = Util::getOneLine(inbuffer, sep);
+        string line = Util::getReqLine(inbuffer, sep);
         if(line.empty())
             return;
 
@@ -59,12 +59,12 @@ public:
 public:
     string inbuffer;
 
-    string method;     
-    string url;     
-    string httpversion; 
-    string path;   // 访问路径
-    string suffix; // 访问文件的后缀格式
-    int size;      // 请求资源大小
+    string method;      // 请求方法
+    string url;         // 请求资源路径
+    string httpversion; // 版本
+    string path;        // 访问路径
+    string suffix;      // 访问文件的后缀格式，用于解析响应何种文件
+    int size;           // 请求资源大小
 };
 
 class httpResponse

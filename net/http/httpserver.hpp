@@ -26,14 +26,13 @@ public:
     int _socketfd;
 };
 
-
 void handlerHttp(ThreadData* td)
 {
-    // 读取http请求
-    // 反序列化（这里省略）
-    // 业务逻辑
-    // 序列化（这里省略）
-    // 发送http响应回去
+    // 1. 读取http请求
+    // 2. 反序列化（这里省略）
+    // 3. 业务逻辑
+    // 4. 序列化（这里省略）
+    // 5. 发送http响应回去
     char buffer[4096];
     httpRequest req;
     httpResponse resp;

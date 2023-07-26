@@ -1,4 +1,6 @@
 #include "httpserver.hpp"
+#include "util.hpp"
+#include "protocol.hpp"
 #include <memory>
 #include <string>
 void Usage(string proc)
@@ -6,50 +8,24 @@ void Usage(string proc)
     cout << "Usage: \n\t" << proc << " port\n\r";
 }
 
-// 将请求文件的格式转化为响应的格式
-string suffixHash(const string& suffix)
-{
-    std::string ct = "Content-Type: ";
-
-    if (suffix == ".html")
-        ct += "text/html";
-    else if (suffix == ".jpg")
-        ct += "application/x-jpg;image/jpeg";
-
-    ct += "\r\n";
-    return ct;
-}
-
-// 1. 服务器和网页分离，html
-// 2. url -> / : web根目录
-// 3. 我们要正确的给客户端返回资源类型，我们首先要自己知道！所有的资源都有后缀！！
+// 请求资源的函数
 bool Get(int socketfd, const httpRequest& req, httpResponse& resp)
 {
-    // if(req.path == "test.py")
-    // {
-    //     //建立进程间通信，pipe
-    //     //fork创建子进程，execl("/bin/python", test.py)
-    //     // 父进程，将req.parm 通过管道写给某些后端语言，py，java，php等语言
-    // }
-    // if(req.path == "/search")
-    // {
-    //     // req.parm
-    //     // 使用我们自己写的C++的方法，提供服务
-    // }
-
+    // 1. 请求处理 -- 因为已经处理完毕，只需要打印即可
     cout << "+++++++++++++++++http start++++++++++++++++++" << endl;
     cout << req.inbuffer << endl;
-    cout << "method: " << req.method << endl;
-    cout << "url: " << req.url << endl;
-    cout << "httpversion: " << req.httpversion << endl;
+
+    cout << "\r\n下面是解析出来的一些变量：" << endl;
     cout << "path: " << req.path << endl;
     cout << "suffix: " << req.suffix << endl;
     cout << "size: " << req.size << "字节" << endl;
     cout << "++++++++++++++++++http end+++++++++++++++++++" << endl;
 
-    // string resphead = "HTTP/1.1 307 Temporary Redirect\r\n";
-    string respline = "HTTP/1.1 200 Accept\r\n";
-    string resphead = suffixHash(req.suffix);
+
+    // 2. 响应处理
+    // string respline = "HTTP/1.1 307 Temporary Redirect\r\n";
+    string respline = "HTTP/1.1 200 Accept\r\n"; 	// 响应行，这里设为成功
+    string resphead = Util::suffixHash(req.suffix); // 这里响应报头通过suffixHash函数获取其对应的返回资源，如html
     if(req.size > 0)
     {
         resphead += "Content-Length: ";
@@ -57,27 +33,33 @@ bool Get(int socketfd, const httpRequest& req, httpResponse& resp)
         resphead += sep;
     }
 
-    resphead += "Set-Cookie: name=lirendada; Max-Age=60\r\n"; // 往后60秒，每次http请求时候都会自动携带曾经设置的所有cookie，帮助服务器进行鉴权行为 -- http会话保持
+    // 可以携带Location字段，达到重定向的目的
     // resphead += "Location: https://lirendada.github.io/\r\n";
-    string empty = "\r\n";
-    
-    // string body = "<html lang=\"en\"><head><meta charset=\"UTF-8\"><title>for test</title><h1>sb鸡哥</h1></head><body><p>北京交通广播《一路畅通》“交通大家谈”节目，特邀北京市交通委员会地面公交运营管理处处长赵震、北京市公安局公安交通管理局秩序处副处长 林志勇、北京交通发展研究院交通规划所所长 刘雪杰为您解答公交车专用道6月1日起社会车辆进出公交车道须注意哪些？</p></body></html>";
 
+    // 往后60秒，每次http请求时候都会自动携带曾经设置的所有cookie，帮助服务器进行鉴权行为 -- http会话保持
+    //resphead += "Set-Cookie: name=lirendada; Max-Age=60\r\n"; 
+
+    string empty = "\r\n"; // 空行
     string body;
-    body.resize(req.size); // 记得要开辟空间
-    if(!Util::readFile(req.path, (char*)body.c_str(), req.size)) // 若读取不到读取的资源
+    body.resize(req.size); // 记得要先开辟空间
+    if(!Util::readFile(req.path, (char*)body.c_str(), req.size)) // 读取对应的资源文件
     {
-        Util::readFile(html_404, (char*)body.c_str(), req.size); // 则读取错误页面，这个肯定会超过
+        // 若读取不到读取资源，则读取错误页面，这个肯定会成功 
+        // 注意要计算错误页面的大小，然后重新开辟空间
+        struct stat st;
+        stat(html_404.c_str(), &st);
+        resphead += "Content-Length: ";
+        resphead += to_string(st.st_size);
+        resphead += sep;
+        body.resize(st.st_size);
+        Util::readFile(html_404, (char*)body.c_str(), st.st_size); 
     }
-    // if(!Util::readFile(req.path, &body))
-    // {
-    //     Util::readFile(html_404, &body);
-    // }
 
-    resp.outbuffer = respline + resphead + empty;
+    resp.outbuffer = respline + resphead + empty; // 将响应的各部分组织起来成为一个完整的报文
+    
     cout << "----------------------http response start---------------------------" << endl;
     std::cout << resp.outbuffer << std::endl;
-    cout << "----------------------http response end---------------------------" << endl;
+    cout << "----------------------http response end-----------------------------" << endl;
     resp.outbuffer += body;
     return true;
 }
