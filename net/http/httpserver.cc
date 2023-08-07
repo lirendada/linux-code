@@ -36,8 +36,8 @@ bool Get(int socketfd, const httpRequest& req, httpResponse& resp)
     // 可以携带Location字段，达到重定向的目的
     // resphead += "Location: https://lirendada.github.io/\r\n";
 
-    // 往后60秒，每次http请求时候都会自动携带曾经设置的所有cookie，帮助服务器进行鉴权行为 -- http会话保持
-    //resphead += "Set-Cookie: name=lirendada; Max-Age=60\r\n"; 
+    // 往后20秒，每次http请求时候都会自动携带曾经设置的所有cookie，帮助服务器进行鉴权行为 -- http会话保持
+    resphead += "Set-Cookie: name=lirendada; Max-Age=20\r\n"; 
 
     string empty = "\r\n"; // 空行
     string body;
