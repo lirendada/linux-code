@@ -64,6 +64,10 @@ public:
             exit(1);
         }
         cout << "socket success" << endl;
+        
+        // 地址复用
+       // int opt = 1;
+       // setsockopt(_listenfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
         // 绑定网络信息
         struct sockaddr_in local;
