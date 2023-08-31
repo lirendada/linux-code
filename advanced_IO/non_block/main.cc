@@ -1,25 +1,12 @@
 #include <cstdio>
-#include <vector>
-#include <functional>
 #include "util.hpp"
 
-using func_t = std::function<void()>; 
-
-#define INIT(v) do{\
-    v.push_back(DownLoad);\
-    v.push_back(Print);\
-    v.push_back(ExecuteSql);\
-}while(0)
-
 #define RUN(callbacks) do{\
-    for(const auto & e : callbacks) e();\
+    callbacks();\
 }while(0)
 
 int main()
 {
-    std::vector<func_t> v; 
-    INIT(v); 
-
     // 设置非阻塞等待
     setNonBlock(0);
 
@@ -41,11 +28,29 @@ int main()
             break;
         }
         else
-        {}
+        {
+            // std::cout << "errno: " << errno << ", is " << strerror(errno) << std::endl;
+            // std::cout << "EAGAIN: " << EAGAIN << "  EWOULDBLOCK: " << EWOULDBLOCK << std::endl;
 
-        RUN(v);
-        std::cout << "----------------------" << std::endl;
-        sleep(2); // 睡眠一会
+            if(errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                std::cout << "未输入数据，并不是读取错误！" << std::endl;
+            }
+            else if(errno == EINTR)
+            {
+                std::cout << "读取被中断，需要继续上一次的读取！" << std::endl;
+                continue;
+            }
+            else
+            {
+                std::cout << "读取错误！" << std::endl;
+                break;
+            }
+        }
+
+        RUN(DownLoad);
+        std::cout << "---------------------------------------" << std::endl;
+        sleep(2); 
     }
     return 0;
 }
