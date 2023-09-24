@@ -27,7 +27,7 @@ const static uint64_t MAX_BUFFER_SIZE = 1024;
     time_t timestamp = time(NULL);\
     struct tm* timeinfo = localtime(&timestamp);\
     strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", timeinfo);\
-    fprintf(stdout, "[%p %s %s:%d] " format "\n", (void*)pthread_self(), timebuffer, __FILE__, __LINE__, ##__VA_ARGS__);\
+    fprintf(stdout, "[%s %s:%d] " format "\n", timebuffer, __FILE__, __LINE__, ##__VA_ARGS__);\
 }while(0)
 
 // 将等级和日志打印封装起来
@@ -260,8 +260,8 @@ public:
     // 1. 创建套接字
     bool Create()
     {
-        int n = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // IPPROTO_TCP指定的是TCP协议
-        if(n < 0)
+        _sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // IPPROTO_TCP指定的是TCP协议
+        if(_sockfd < 0)
         {
             ELOG("create socket error!!");
             return false;
@@ -274,13 +274,13 @@ public:
     {
         // 填充信息
         struct sockaddr_in local;
-        memset(&local, 0, sizeof local);
+        memset(&local, 0, sizeof(struct sockaddr_in));
         local.sin_family = AF_INET;
         local.sin_port = htons(port);
         local.sin_addr.s_addr = inet_addr(ip.c_str());
 
         // 绑定信息
-        int n = bind(_sockfd, (struct sockaddr*)&local, sizeof local);
+        int n = bind(_sockfd, (struct sockaddr*)&local, sizeof(struct sockaddr_in));
         if(n < 0)
         {
             ELOG("bind error!!");
@@ -325,7 +325,7 @@ public:
         client.sin_addr.s_addr = inet_addr(ip.c_str());
 
         // 发起连接
-        int n = connect(_sockfd, (struct sockaddr*)&client, sizeof client);
+        int n = connect(_sockfd, (struct sockaddr*)&client, sizeof(struct sockaddr_in));
         if(n < 0)
         {
             ELOG("connect server error!!");
@@ -391,17 +391,18 @@ public:
     }
 
     // 9. 创建一个服务端链接的接口
-    bool create_server(uint16_t port, const std::string& ip = "0.0.0.0")
+    bool create_server(uint16_t port, const std::string& ip = "0.0.0.0", bool isNonBlock = false)
     {
         // 1. 创建套接字  2. 绑定地址  3. 开始监听  4. 设置非阻塞  5. 启动地址重用
-        if(!Create()) 
+        if(Create() == false) 
             return false;
-        if(!Bind(ip, port)) 
+        if(Bind(ip, port) == false) 
             return false;
-        if(!Listen()) 
+        if(Listen() == false) 
             return false;
+        if(isNonBlock)
+            set_nonblock();
         reuse_addr();
-        set_nonblock();
         return true;
     }
 
@@ -409,9 +410,9 @@ public:
     bool create_client(uint16_t port, const std::string& ip)
     {
         // 1. 创建套接字  2. 发起连接
-        if(!Create()) 
+        if(Create() == false) 
             return false;
-        if(!Connect(ip, port))
+        if(Connect(ip, port) == false)
             return false;
         return true;
     }
@@ -421,17 +422,17 @@ public:
     {
         // 设置地址复用
         int val = 1;
-        setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof val);
+        setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, (void*)&val, sizeof(int));
 
         // 设置端口复用
         val = 1;
-        setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, &val, sizeof val);
+        setsockopt(_sockfd, SOL_SOCKET, SO_REUSEPORT, (void*)&val, sizeof(int));
     }
 
     // 12. 设置套接字阻塞属性 -- 设置为非阻塞
     void set_nonblock()
     {
-        int old = fcntl(_sockfd, F_GETFL);
+        int old = fcntl(_sockfd, F_GETFL, 0);
         fcntl(_sockfd, F_SETFL, old | O_NONBLOCK);
     }
 };
