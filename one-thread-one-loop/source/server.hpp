@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstring>
 #include <cstdio>
+#include <functional>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -12,6 +13,7 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/epoll.h>
 #include <time.h>
 
 const static uint64_t MAX_BUFFER_SIZE = 1024;
@@ -247,6 +249,7 @@ private:
     }
 };
 
+
 const static int MAXBACKLOG = 1024;
 class Socket
 {
@@ -434,6 +437,122 @@ public:
     {
         int old = fcntl(_sockfd, F_GETFL, 0);
         fcntl(_sockfd, F_SETFL, old | O_NONBLOCK);
+    }
+};
+
+
+using eventcallback_t  = std::function<void()>; // 事件触发的函数类型
+class Channel
+{
+private:
+    int _fd;           // 文件描述符
+    uint32_t _events;  // 当前需要监控的事件
+    uint32_t _revents; // 当前触发或者就绪的事件（由外部设置）
+
+    eventcallback_t _read_callback;       // 可读事件被触发的回调函数
+    eventcallback_t _write_callback;      // 可写事件被触发的回调函数
+    eventcallback_t _error_callback;      // 错误事件被触发的回调函数
+    eventcallback_t _close_callback;      // 关闭事件被触发的回调函数
+    eventcallback_t _arbitrary_callback;  // 任意事件被触发的回调函数
+public:
+    Channel(int fd) 
+        : _fd(fd), _events(0), _revents(0) 
+    {}
+
+    int get_fd() { return _fd; }                               // 获取文件描述符
+    uint32_t get_events() { return _events; }                  // 获取当前监控的事件
+    void set_revents(uint32_t revents) { _revents = revents; } // 设置实际就绪的事件
+
+    // 设置对应触发事件的回调函数
+    void set_read_callback(const eventcallback_t& cb) { _read_callback = cb; }
+    void set_write_callback(const eventcallback_t& cb) { _write_callback = cb; }
+    void set_error_callback(const eventcallback_t& cb) { _error_callback = cb; }
+    void set_close_callback(const eventcallback_t& cb) { _close_callback = cb; }
+    void set_arbitrary_callback(const eventcallback_t& cb) { _arbitrary_callback = cb; }
+
+    bool _is_read_able()  { return (_events & EPOLLIN); }    // 当前是否监控了可读
+    bool _is_write_able() { return (_events & EPOLLOUT); }  // 当前是否监控了可写
+
+    // 启动读事件监控
+    void _enable_read() 
+    {
+        _events |= EPOLLIN; 
+        // 其实这里还需要将读事件添加到EventLoop中管理，但是还没实现，所以这里就先留着
+        // TODO
+    }
+
+     // 启动写事件监控
+    void _enable_write() 
+    {
+        _events |= EPOLLOUT; 
+        // 其实这里还需要将写事件添加到EventLoop中管理，但是还没实现，所以这里就先留着
+        // TODO
+    }
+
+    // 关闭读事件监控
+    void _disable_read()
+    {
+        _events &= (~EPOLLIN);
+        // 其实这里还需要将读事件从EventLoop中移除，但是还没实现，所以这里就先留着
+        // TODO
+    }
+
+    // 关闭写事件监控
+    void _disable_write()
+    {
+        _events &= (~EPOLLOUT);
+        // 其实这里还需要将写事件从EventLoop中移除，但是还没实现，所以这里就先留着
+        // TODO
+    }
+
+    // 关闭所有事件监控
+    void _disable_all()
+    {
+        _events = 0;
+        // 其实这里还需要将所有事件从EventLoop中移除，但是还没实现，所以这里就先留着
+        // TODO
+    } 
+
+    // 事件总处理函数。一旦触发了事件，就调用这个函数，而触发了什么事件如何处理由连接管理者决定
+    void _handler()  
+    {
+        // 下面因为错误和关闭事件触发的时候会释放连接，此时就不能再调用_arbitrary_callback了，所以需要提前先调用
+        
+        if((_revents & EPOLLIN) || (_revents & EPOLLRDHUP) ||(_revents & EPOLLPRI))
+        {
+            // 如果是有数据可读、对端关闭写入、有带外数据的事件触发的话，则都属于是可读事件处理
+            if(_read_callback)
+                _read_callback();
+            
+            if(_arbitrary_callback)
+                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
+        }
+
+        // 下面的三个事件有可能会释放连接，所以只能处理一个，要用else if连接
+        if(_revents & EPOLLOUT) 
+        {
+            if(_write_callback)
+                _write_callback(); // 可读事件触发的处理
+            
+            if(_arbitrary_callback)
+                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
+        }
+        else if(_revents & EPOLLERR) 
+        {
+            if(_arbitrary_callback)
+                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
+                
+            if(_error_callback)
+                _error_callback(); // 错误事件触发的处理
+        }
+        else if(_revents & EPOLLHUP) 
+        {
+            if(_arbitrary_callback)
+                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
+
+            if(_close_callback)
+                _close_callback(); // 关闭事件触发的处理
+        }
     }
 };
 
