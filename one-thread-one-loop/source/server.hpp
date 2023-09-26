@@ -2,9 +2,11 @@
 #define __MY_SERVER_H__
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include <cassert>
 #include <cstring>
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -260,6 +262,8 @@ public:
     Socket(int sockfd) : _sockfd(sockfd) {}
     ~Socket() { Close(); };
 
+    int get_fd() { return _sockfd; }
+
     // 1. 创建套接字
     bool Create()
     {
@@ -406,6 +410,7 @@ public:
         if(isNonBlock)
             set_nonblock();
         reuse_addr();
+        DLOG("create_server success!");
         return true;
     }
 
@@ -440,7 +445,7 @@ public:
     }
 };
 
-
+class Poller;
 using eventcallback_t  = std::function<void()>; // 事件触发的函数类型
 class Channel
 {
@@ -454,10 +459,17 @@ private:
     eventcallback_t _error_callback;      // 错误事件被触发的回调函数
     eventcallback_t _close_callback;      // 关闭事件被触发的回调函数
     eventcallback_t _arbitrary_callback;  // 任意事件被触发的回调函数
+
+    Poller* _poller;
 public:
-    Channel(int fd) 
-        : _fd(fd), _events(0), _revents(0) 
+    Channel(int fd, Poller* poller) 
+        : _fd(fd), _events(0), _revents(0), _poller(poller)
     {}
+
+    ~Channel() 
+    {
+        close(_fd); // 记得要释放文件描述符 
+    }
 
     int get_fd() { return _fd; }                               // 获取文件描述符
     uint32_t get_events() { return _events; }                  // 获取当前监控的事件
@@ -470,90 +482,173 @@ public:
     void set_close_callback(const eventcallback_t& cb) { _close_callback = cb; }
     void set_arbitrary_callback(const eventcallback_t& cb) { _arbitrary_callback = cb; }
 
-    bool _is_read_able()  { return (_events & EPOLLIN); }    // 当前是否监控了可读
-    bool _is_write_able() { return (_events & EPOLLOUT); }  // 当前是否监控了可写
+    bool is_read_able()  { return (_events & EPOLLIN); }    // 当前是否监控了可读
+    bool is_write_able() { return (_events & EPOLLOUT); }  // 当前是否监控了可写
 
     // 启动读事件监控
-    void _enable_read() 
-    {
-        _events |= EPOLLIN; 
-        // 其实这里还需要将读事件添加到EventLoop中管理，但是还没实现，所以这里就先留着
-        // TODO
-    }
+    void enable_read() { _events |= EPOLLIN; update(); }
 
      // 启动写事件监控
-    void _enable_write() 
-    {
-        _events |= EPOLLOUT; 
-        // 其实这里还需要将写事件添加到EventLoop中管理，但是还没实现，所以这里就先留着
-        // TODO
-    }
+    void enable_write() { _events |= EPOLLOUT; update(); }
 
     // 关闭读事件监控
-    void _disable_read()
-    {
-        _events &= (~EPOLLIN);
-        // 其实这里还需要将读事件从EventLoop中移除，但是还没实现，所以这里就先留着
-        // TODO
-    }
+    void disable_read() { _events &= (~EPOLLIN); update(); }
 
     // 关闭写事件监控
-    void _disable_write()
-    {
-        _events &= (~EPOLLOUT);
-        // 其实这里还需要将写事件从EventLoop中移除，但是还没实现，所以这里就先留着
-        // TODO
-    }
+    void disable_write() { _events &= (~EPOLLOUT); update(); }
 
     // 关闭所有事件监控
-    void _disable_all()
+    void disable_all() { _events = 0; update(); } 
+
+    // 清除所有的回调函数
+    void clear_callback() 
     {
-        _events = 0;
-        // 其实这里还需要将所有事件从EventLoop中移除，但是还没实现，所以这里就先留着
-        // TODO
-    } 
+        _read_callback = _write_callback = _error_callback = _close_callback = _arbitrary_callback = nullptr;
+    }
 
     // 事件总处理函数。一旦触发了事件，就调用这个函数，而触发了什么事件如何处理由连接管理者决定
-    void _handler()  
+    void handler()  
     {
         // 下面因为错误和关闭事件触发的时候会释放连接，此时就不能再调用_arbitrary_callback了，所以需要提前先调用
-        
+        if(_arbitrary_callback)
+            _arbitrary_callback(); // 不管任何事件，都调用的回调函数
+
         if((_revents & EPOLLIN) || (_revents & EPOLLRDHUP) ||(_revents & EPOLLPRI))
         {
             // 如果是有数据可读、对端关闭写入、有带外数据的事件触发的话，则都属于是可读事件处理
+            DLOG("read_callback");
             if(_read_callback)
                 _read_callback();
-            
-            if(_arbitrary_callback)
-                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
         }
 
         // 下面的三个事件有可能会释放连接，所以只能处理一个，要用else if连接
         if(_revents & EPOLLOUT) 
         {
+            DLOG("write_callback");
             if(_write_callback)
                 _write_callback(); // 可读事件触发的处理
-            
-            if(_arbitrary_callback)
-                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
         }
         else if(_revents & EPOLLERR) 
         {
-            if(_arbitrary_callback)
-                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
-                
+            DLOG("error_callback");
             if(_error_callback)
                 _error_callback(); // 错误事件触发的处理
         }
         else if(_revents & EPOLLHUP) 
         {
-            if(_arbitrary_callback)
-                _arbitrary_callback(); // 不管任何事件，都调用的回调函数
-
+            DLOG("close_callback");
             if(_close_callback)
                 _close_callback(); // 关闭事件触发的处理
         }
     }
+
+    // 添加或者修改事件监控
+    void update();
+
+    // 移除事件监控
+    void remove();
 };
+
+const static int MAX_EPOLL_EVENTS = 1024;
+
+class Poller
+{
+private:
+    int _epollfd;                                
+    struct epoll_event _events[MAX_EPOLL_EVENTS]; // 存放活跃连接的数组
+    std::unordered_map<int, Channel*> _channels;  // 存放文件描述符与其对应的事件管理对象的哈希表
+public:
+    Poller() 
+    {
+        _epollfd = epoll_create(MAX_EPOLL_EVENTS);
+        if(_epollfd == -1)
+        {
+            ELOG("epoll create error!!");
+            abort();
+        }
+        DLOG("epoll create succuess, epollfd is: %d", _epollfd);
+    }
+
+    ~Poller() 
+    {
+        if(_epollfd != -1)
+            close(_epollfd);
+    }
+
+    // 添加或修改监控事件（只是一个封装）
+    void update_event(Channel* channel)
+    {
+        // 如果事件存在的话则属于修改事件，不存在的话属于添加事件
+        bool ret = has_channel(channel);
+        if(ret == false)
+        {
+            _channels[channel->get_fd()] = channel;
+            control(channel, EPOLL_CTL_ADD); // 交给辅助函数去完成
+        }
+        else
+            control(channel, EPOLL_CTL_MOD);
+    }
+
+    // 移除监控
+    void remove_event(Channel* channel)
+    {
+        // 移除监控包括两个步骤：
+        //   1. 从epoll模型中移除
+        control(channel, EPOLL_CTL_DEL);
+
+        //   2. 从哈希表中去除关系
+        auto it = _channels.find(channel->get_fd());
+        if(it != _channels.end())
+            _channels.erase(it);
+    }
+
+    // 启动监控，返回活跃连接
+    void start_event(std::vector<Channel*>* active)
+    {
+        // 等待事件就绪，我们这里设为阻塞式等待
+        int n = epoll_wait(_epollfd, _events, MAX_EPOLL_EVENTS, -1);  
+        if(n == -1)
+        {
+            if(errno == EINTR) // 如果是被中断则不代表等待失败
+                return;
+
+            ELOG("epoll_wait error:%s\n", strerror(errno));
+            abort();
+        }
+
+        // 将获取到的事件设置到对应的Channel对象中，并且尾插到active中
+        for(int i = 0; i < n; ++i)
+        {
+            auto it = _channels.find(_events[i].data.fd);
+            assert(it != _channels.end()); // 认为是一定能找到的，找不到说明是程序问题，直接退出
+
+            it->second->set_revents(_events[i].events); // 设置实际就绪的事件
+            active->push_back(it->second);
+        }
+    }
+private:
+    // 对epoll的实际操作接口
+    void control(Channel* channel, int option)
+    {
+        struct epoll_event ev;
+        ev.data.fd = channel->get_fd();
+        ev.events = channel->get_events();
+        int ret = epoll_ctl(_epollfd, option, channel->get_fd(), &ev);
+        if(ret == -1)
+            ELOG("epoll_ctl error!!");
+    }
+
+    // 判断一个事件管理对象Channel是否已经添加了事件监控
+    bool has_channel(Channel* channel)
+    {
+        auto it = _channels.find(channel->get_fd());
+        if(it == _channels.end())
+            return false;
+        return true;
+    }
+};
+
+void Channel::update() { _poller->update_event(this); }
+void Channel::remove() { _poller->remove_event(this); }
 
 #endif

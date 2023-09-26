@@ -2,17 +2,21 @@
 
 int main()
 {
-    Socket cli_sock;
-    cli_sock.create_client(8080, "127.0.0.1");
-    for (int i = 0; i < 5; i++) 
+    // 创建客户端套接字
+    Socket client_sock;
+    client_sock.create_client(8080, "127.0.0.1");
+    while(true)
     {
-        std::string str = "hha";
-        cli_sock.Send(str.c_str(), str.size());
-        char buf[1024] = {0};
-        cli_sock.Recv(buf, 1023);
+        // 做一个简单的发送和回响
+        std::string str;
+        getline(std::cin, str);
+        client_sock.Send(str.c_str(), str.size());
+
+        char buf[1024] = { 0 };
+        client_sock.Recv(buf, sizeof(buf) - 1);
         DLOG("%s", buf);
         sleep(1);
     }
-    while(1) sleep(1);
+    client_sock.Close();
     return 0;
 }
