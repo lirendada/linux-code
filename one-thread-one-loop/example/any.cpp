@@ -73,14 +73,16 @@ private:
 
     holder* _content; // holder类对象，通过多态方式来操作placeholder对象
 public:
-    Any() : _content(nullptr) 
+    Any() 
+        : _content(nullptr) 
     {}
 
     ~Any() { delete _content; }
 
     // 任意类型数据的构造函数
     template <class T>
-    Any(const T& val) : _content(new placeholder<T>(val))  
+    Any(const T& val) 
+        : _content(new placeholder<T>(val))  
     {}   
 
     // Any类型的构造函数

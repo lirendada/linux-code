@@ -196,59 +196,144 @@
 // 	return 0;
 // }
 
+// #include <iostream>
+// using namespace std;
+// //多继承
+// class Base1 
+// {
+// public:
+// 	virtual void func1() { cout << "Base1::func1" << endl; }
+// 	virtual void func2() { cout << "Base1::func2" << endl; }
+// private:
+// 	int b1;
+// };
+
+// class Base2 
+// {
+// public:
+// 	virtual void func1() { cout << "Base2::func1" << endl; }
+// 	virtual void func2() { cout << "Base2::func2" << endl; }
+// private:
+// 	int b2;
+// };
+
+// class Derive : public Base1, public Base2 
+// {
+// public:
+// 	virtual void func1() { cout << "Derive::func1" << endl; }
+// 	virtual void func3() { cout << "Derive::func3" << endl; }
+// private:
+// 	int d1;
+// };
+
+// typedef void(*VFunc)();  // 由于等会要传_vfptr也就是存函数指针的数组指针，类型是void*，所以我们把他们都统一重命名为VFTunc
+
+// void PrintVFT(VFunc* ptr)  // 这里ptr是个存函数指针的数组指针
+// {
+// 	// 依次取虚表中的虚函数指针打印并调用。调用就可以看出存的是哪个函数
+// 	printf("_vfptr:%p\n", ptr);
+
+// 	for (int i = 0; i <= 2; ++i)
+// 	{
+// 		printf("_vfptr[%d]:%p --> ", i, ptr[i]);
+// 		ptr[i]();
+// 	}
+// 	cout << endl;
+// }
+
+// int main()
+// {
+//     Base1 b1;
+// 	Base2 b2;
+
+// 	Derive d;
+// 	PrintVFT((VFunc*)(*((int*)&d)));
+// 	PrintVFT((VFunc*)(*((int*)((char*)&d + sizeof(Base1))))); // 括号比较多，看的时候注意看仔细
+    
+//     return 0;
+// }
+
+
+
 #include <iostream>
-using namespace std;
-//多继承
-class Base1 
+#include <thread>
+#include <cstring>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+char buffer[200];
+int read_index;
+int write_index;
+sem_t producer_lock;
+sem_t consumer_lock;
+sem_t psem; // 表示空闲数据的信号量
+sem_t csem; // 表示已有的数据的信号量
+
+void* consumer(void* args)
 {
-public:
-	virtual void func1() { cout << "Base1::func1" << endl; }
-	virtual void func2() { cout << "Base1::func2" << endl; }
-private:
-	int b1;
-};
+    char* b = (char*)args;
+	std::cout << pthread_self() << "号消费者线程启动" << std::endl;
+    while(true)
+    {
+		sem_wait(&csem); 		  
+		sem_wait(&consumer_lock); 
 
-class Base2 
+        std::cout << pthread_self() << "号消费者读取数据开始，内容为：";
+		while(buffer[read_index] != '\0')
+			printf("%c", buffer[read_index++]);
+		read_index++;
+		std::cout << std::endl;
+
+		sem_post(&consumer_lock); 
+		sem_post(&psem); 
+		sleep(1);
+    }
+}
+
+void* producer(void* args)
 {
-public:
-	virtual void func1() { cout << "Base2::func1" << endl; }
-	virtual void func2() { cout << "Base2::func2" << endl; }
-private:
-	int b2;
-};
+    char* b = (char*)args;
+	std::cout << pthread_self() << "号生产者线程启动" << std::endl;
+    while(true)
+    {
+		sem_wait(&psem);		 
+		sem_wait(&producer_lock); 
 
-class Derive : public Base1, public Base2 
-{
-public:
-	virtual void func1() { cout << "Derive::func1" << endl; }
-	virtual void func3() { cout << "Derive::func3" << endl; }
-private:
-	int d1;
-};
+		char tmp[1024] = "liren";
+		for(int i = 0; i < sizeof(tmp); ++i)
+		{
+			buffer[write_index++] = tmp[i];
+			if(tmp[i] == '\0')
+				break;
+		}
+        std::cout << pthread_self() << "号生产者写入数据完毕，此时写指针下标：" << write_index << std::endl; 
 
-typedef void(*VFunc)();  // 由于等会要传_vfptr也就是存函数指针的数组指针，类型是void*，所以我们把他们都统一重命名为VFTunc
-
-void PrintVFT(VFunc* ptr)  // 这里ptr是个存函数指针的数组指针
-{
-	// 依次取虚表中的虚函数指针打印并调用。调用就可以看出存的是哪个函数
-	printf("_vfptr:%p\n", ptr);
-
-	for (int i = 0; i <= 2; ++i)
-	{
-		printf("_vfptr[%d]:%p --> ", i, ptr[i]);
-		ptr[i]();
-	}
-	cout << endl;
+		sem_post(&producer_lock);
+		sem_post(&csem); 
+    }
 }
 
 int main()
 {
-    Base1 b1;
-	Base2 b2;
-
-	Derive d;
-	PrintVFT((VFunc*)(*((int*)&d)));
-	PrintVFT((VFunc*)(*((int*)((char*)&d + sizeof(Base1))))); // 括号比较多，看的时候注意看仔细
+    pthread_t consume[3];
+    pthread_t produce[2];
+    sem_init(&producer_lock, 0, 2);
+	sem_init(&consumer_lock, 0, 3);
+    sem_init(&psem, 0, 10);
+    sem_init(&csem, 0, 0);
+    for(int i = 0; i < 3; ++i)
+        pthread_create(&consume[i], nullptr, consumer, buffer);
+    for(int i = 0; i < 2; ++i)
+        pthread_create(&produce[i], nullptr, producer, buffer);
     
+    for(int i = 0; i < 3; ++i)
+        pthread_join(consume[i], nullptr);
+    for(int i = 0; i < 2; ++i)
+        pthread_join(produce[i], nullptr);
+    sem_destroy(&producer_lock);
+    sem_destroy(&consumer_lock);
+    sem_destroy(&psem);
+    sem_destroy(&csem);
     return 0;
 }

@@ -505,10 +505,7 @@ public:
     void disable_all() { _events = 0; update(); } 
 
     // 清除所有的回调函数
-    void clear_callback() 
-    {
-        _read_callback = _write_callback = _error_callback = _close_callback = _arbitrary_callback = nullptr;
-    }
+    void clear_callback() { _read_callback = _write_callback = _error_callback = _close_callback = _arbitrary_callback = nullptr; }
 
     // 事件总处理函数。一旦触发了事件，就调用这个函数，而触发了什么事件如何处理由连接管理者决定
     void handler()  
@@ -996,5 +993,108 @@ void Channel::remove() { _eventpoller->remove_event(this); }
 void TimerWheel::add_timertask_in_thread(uint64_t id, uint32_t timeout, const func_t& task) { _loop->run_in_thread(std::bind(&TimerWheel::add_timertask, this, id, timeout, task)); }
 void TimerWheel::refresh_timertask_in_thread(uint64_t id) { _loop->run_in_thread(std::bind(&TimerWheel::refresh_timertask, this, id)); }
 void TimerWheel::cancel_timertask_in_thread(uint64_t id) { _loop->run_in_thread(std::bind(&TimerWheel::cancel_timertask, this, id)); }
+
+typedef enum {
+    DISCONNECTED,   // 连接关闭状态
+    CONNECTING,     // 连接建立成功，待处理状态
+    CONNECTED,      // 连接建立处理工作完成，可以通信的状态
+    DISCONNECTING   // 待关闭的状态
+} ConnectionStatus;
+
+class Connection;
+using ConnectionPtr = std::shared_ptr<Connection>; // 使用智能指针包装一下Connection对象，这也是为了后面给服务器模块管理时候使用的
+
+using ConnectedCallBack = std::function<void(const ConnectionPtr&)>;
+using MessageCallBack = std::function<void(const ConnectionPtr&, Buffer*)>;
+using ClosedCallBack = std::function<void(const ConnectionPtr&)>;
+using ArbitraryCallBack = std::function<void(const ConnectionPtr&)>;
+class Connection
+{
+private:
+    uint64_t _id;      // 该连接的唯一ID，便于连接的查找与管理
+    int _sockfd;       // 该连接的文件描述符
+    
+    Socket _socket;    // 套接字操作管理
+    Channel _channel;  // 连接的事件管理
+    Buffer _inbuffer;  // 输入缓冲区--存放从socket中读取到的数据
+    Buffer _outbuffer; // 输出缓冲区--存放要发送到对端的数据
+    Any _context;      // 通用类型，用于表示不同协议的请求处理的上下文
+    EventLoop* _loop;  // 方便找到对应的EventLoop线程
+
+    ConnectionStatus _status;      // 当前连接所处的状态（因为需要根据状态看看是否需要处理缓冲区中未处理完的数据）
+    bool _enable_inactive_release; // 连接是否启动非活跃销毁的判断标志，默认为false
+
+    // 下面是提供给使用者设置的回调函数
+    ConnectedCallBack _connected_callback;
+    MessageCallBack _message_callback;
+    ClosedCallBack _closed_callback;
+    ArbitraryCallBack _arbitrary_callback;
+public:
+    Connection();
+    ~Connection();
+
+    /* 该模块核心接口 */
+
+    // 发送数据（把数据放到发送缓冲区中，启动写事件监控）
+    void send_data(char* data, size_t len);
+
+    // 提供给组件使用者使用的关闭连接接口（并不是真的直接关闭，而是先判断是否有数据没处理完等情况）
+    void shutdown();
+
+    // 启动非活跃销毁功能，并定义多长时间没通信就是非活跃，添加定时任务
+    void enable_inactive_release(int sec);
+
+    // 取消非活跃销毁功能
+    void cancel_inactive_release();
+
+    // 切换协议（即重置上下文以及重新设置回调函数）
+    void upgrade(const Any& context, 
+                 const ConnectedCallBack& conn, 
+                 const MessageCallBack& msg, 
+                 const ClosedCallBack& closed, 
+                 const ArbitraryCallBack& event);
+
+public:
+    /* 该模块的其它一些功能性函数 */
+
+    int get_sockfd();        // 返回该连接的套接字描述符
+    int get_connection_id(); // 返回该连接的id
+    bool is_connected();     // 判断该连接当前是否处于连接建立完成状态
+
+    Any* get_context();                   // 返回上下文的指针（这样子外部拿到的才不是一个拷贝的新对象）
+    void set_context(const Any& context); // 设置上下文--连接建立完成时调用
+
+    // 设置对应回调函数的接口
+    void set_connected_callback(const ConnectedCallBack& conn);
+    void set_message_callback(const MessageCallBack& conn);
+    void set_closed_callback(const ClosedCallBack& conn);
+    void set_arbitrary_callback(const ArbitraryCallBack& conn);
+
+    void set_channel_callback(); // 连接获取之后，也就是处于CONNECTING状态下要进行各种设置（给channel设置事件回调，启动读事件监控）
+
+private:
+    // 下面函数才是上面对应接口的实际实现部分，要放到对应的eventloop中执行
+    void send_data_inloop(char* data, size_t len);
+    void shutdown_inloop();
+    void enable_inactive_release_inloop(int sec);
+    void cancel_inactive_release_inloop();
+    void upgrade_inloop(const Any& context, 
+                        const ConnectedCallBack& conn, 
+                        const MessageCallBack& msg, 
+                        const ClosedCallBack& closed, 
+                        const ArbitraryCallBack& event);
+
+    // 连接获取之后，也就是处于CONNECTING状态下要进行各种设置（给channel设置事件回调，启动读事件监控，调用_connected_callback回调）
+    void set_channel_callback_inloop(); 
+
+    void release_inloop();       // 这个接口才是实际的释放连接接口
+    
+    // 五个channel的事件回调函数
+    void handle_read_event();
+    void handle_write_event();
+    void handle_error_event();
+    void handle_close_event();
+    void handle_arbitrary_event();
+};
 
 #endif
