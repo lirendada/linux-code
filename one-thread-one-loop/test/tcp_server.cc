@@ -1,55 +1,29 @@
 #include "../source/server.hpp"
 
-void CloseEvent(Channel* channel)
+uint64_t id = 1; // 连接id
+std::unordered_map<uint64_t, ConnectionPtr> connections; // 连接管理表
+
+void connected_handle(const ConnectionPtr& cptr)
 {
-    DLOG("close：%d", channel->get_fd());
-    if(channel == nullptr || channel->get_fd() < 0)
-        return;
-    channel->clear_callback();
-    channel->remove(); // 移除监控
-    delete channel;
+    // 这里的连接建立处理，我们就简单的打印哪个连接建立即可
+    DLOG("new connection: %p，the id is：%d", cptr.get(), cptr->get_connection_id());
 }
 
-void ReadEvent(Channel* channel)
+void message_handle(const ConnectionPtr& cptr, Buffer* buf)
 {
-    // 这里读事件处理，我们就做简单的打印、启动可写事件监控即可
-    int fd = channel->get_fd();
-    char buffer[1024] = { 0 };
-    int n = recv(fd, buffer, sizeof(buffer) - 1, 0);
-    if(n > 0)
-    {
-        buffer[n] = 0;
-        DLOG("接收到：%s", buffer);
+    // 这里的消息事件处理，我们就做简单的打印以及回响即可
+    DLOG("接收到：%s", buf->start_of_read());
+    buf->push_reader_back(buf->get_sizeof_read());
 
-        // 接收到数据之后，启动可写事件监控
-        channel->enable_write();
-    }
-    else
-        CloseEvent(channel); // 其实不应该释放，但是因为当前只是测试，所以需要关闭
+    std::string str = "lirendada 你好啊！";
+    cptr->send_data(str.c_str(), str.size());
 }
 
-void WriteEvent(Channel* channel)
+void closed_handle(const ConnectionPtr& cptr)
 {
-    // 这里做个简单的发送即可
-    int fd = channel->get_fd();
-    const char* data = "lirendada 你好呀！";
-    int n = send(fd, data, strlen(data), 0);
-    if(n < 0)
-    {
-        return CloseEvent(channel); // 错误的话释放该对象
-    }
-    channel->disable_write(); // 然后关闭可写事件监控
-}
-
-void ErrorEvent(Channel* channel)
-{
-    CloseEvent(channel); // 错误的话释放该对象
-}
-
-void ArbitraryEvent(Channel* channel, EventLoop* loop, uint64_t timerid)
-{
-    // 刷新非活跃连接
-    loop->refresh_timer(timerid);
+    // 就是将连接管理表中的该连接去掉
+    DLOG("delete connection: %p，the id is：%d", cptr.get(), cptr->get_connection_id());
+    connections.erase(cptr->get_connection_id());
 }
 
 void Acceptor(Channel* listen_channel, EventLoop* loop)
@@ -62,29 +36,27 @@ void Acceptor(Channel* listen_channel, EventLoop* loop)
         return;
     }
 
-    // 设置新链接的回调函数
-    uint64_t id = rand() % 10000;
-    Channel* channel = new Channel(newfd, loop);
-    channel->set_read_callback(std::bind(ReadEvent, channel));
-    channel->set_write_callback(std::bind(WriteEvent, channel));
-    channel->set_close_callback(std::bind(CloseEvent, channel));
-    channel->set_error_callback(std::bind(ErrorEvent, channel));
-    channel->set_arbitrary_callback(std::bind(ArbitraryEvent, channel, loop, id));
+    // 用Connection包装该新链接，并且设置回调函数
+    ConnectionPtr cptr(new Connection(loop, id, newfd));
+    cptr->set_connected_callback(std::bind(connected_handle, std::placeholders::_1));
+    cptr->set_message_callback(std::bind(message_handle, std::placeholders::_1, std::placeholders::_2));
+    cptr->set_server_closed_callback(std::bind(closed_handle, std::placeholders::_1)); // 注意这里是服务器模块的关闭回调，也就是去掉与该连接的联系
 
-    // 添加定时任务，即对新连接进行过期删除操作
-    loop->add_timer(id, 10, std::bind(CloseEvent, channel));
-    
-    // 启动新链接的可读事件监控
-    channel->enable_read();
+    // 启动非活跃销毁功能，并将连接设置为建立完成状态
+    cptr->enable_inactive_release(3);
+    cptr->connecting_to_connceted();
+
+    // 最后别忘了添加到服务器的连接管理表中
+    connections[id++] = cptr;
 }
 
 int main()
 {
-    srand(time(nullptr));
-
     // 创建服务器套接字
     Socket server;
-    server.create_server(8080);
+    bool ret = server.create_server(8080);
+    if(ret == false)
+        return -1;
 
     // 创建一个EventLoop对象
     EventLoop loop;
@@ -93,10 +65,6 @@ int main()
     Channel listen_channel(server.get_fd(), &loop);
     listen_channel.set_read_callback(std::bind(Acceptor, &listen_channel, &loop));
     listen_channel.enable_read();
-    while(true)
-    {
-        loop.start();
-    }
-    server.Close();
+    loop.start();
     return 0;
 }

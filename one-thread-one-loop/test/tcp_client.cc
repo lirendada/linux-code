@@ -20,6 +20,5 @@ int main()
 
     // 进入死循环
     while(1) sleep(1);
-    client_sock.Close();
     return 0;
 }

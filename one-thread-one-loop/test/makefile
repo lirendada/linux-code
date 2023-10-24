@@ -1,3 +1,4 @@
+.PHONY:clean client server
 all: client server
 
 client : tcp_client.cc
@@ -5,6 +6,5 @@ client : tcp_client.cc
 server : tcp_server.cc
 	g++ -g -o $@ $^ -std=c++11
 
-.PHONY:clean
 clean:
 	rm -rf client server
