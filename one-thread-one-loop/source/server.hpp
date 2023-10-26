@@ -1399,4 +1399,55 @@ public:
     void connecting_to_connceted() { return _loop->run_in_thread(std::bind(&Connection::connecting_to_connceted_inloop, this)); }
 };
 
+using AcceptCallBack = std::function<void(int)>;
+class Acceptor
+{
+private:
+    Socket _socket;   // 监听套接字的描述符
+    EventLoop* _loop; // 用于对监听套接字进行事件监控
+    Channel _channel; // 用于对监听套接字进行事件管理
+
+    AcceptCallBack _accept_callback; // 获取到新连接之后的回调处理函数
+public:
+    Acceptor(EventLoop* loop, uint16_t port)
+        : _socket(create_socket(port))
+        , _loop(loop)
+        , _channel(_socket.get_fd(), _loop)
+    {
+        // 设置监听套接字的可读事件监控
+        // 但是注意不能先启动可读事件监控，因为此时外部可能还没设置_accept_callback函数的回调！！！
+        _channel.set_read_callback(std::bind(&Acceptor::read_handle, this));
+    }
+
+    void start_listen()
+    {
+        // 启动可读事件监控应该由外部控制顺序，必须在set_accept_callback()调用之后再去启动
+        // 如果在构造函数中启动的话，此时如果还没设置回调函数就已经有新连接到来
+        // 那么这些新连接是得不到处理的，因为回调函数还没设置，就会造成内存泄漏问题！
+        _channel.enable_read();
+    }
+
+    // 设置监听套接字的可读事件回调处理函数
+    void set_accept_callback(const AcceptCallBack& cb) { _accept_callback = cb; }
+private:
+    // 监听套接字的可读事件回调处理函数--即获取新连接，调用_accept_callback函数进行新连接处理
+    void read_handle()
+    {
+        int newfd = _socket.Accept();
+        if(newfd < 0)
+            return;
+        
+        if(_accept_callback)
+            _accept_callback(newfd);
+    }
+
+    // 包装一下创建套接字的过程
+    int create_socket(uint16_t port)
+    {
+        bool ret = _socket.create_server(port);
+        assert(ret == true); // 直接断言，如果创建监听套接字失败了，那么其它的都没得说！
+        return _socket.get_fd();
+    }
+};
+
 #endif

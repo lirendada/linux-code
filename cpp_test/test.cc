@@ -256,7 +256,6 @@
 
 
 #include <iostream>
-#include <thread>
 #include <cstring>
 #include <pthread.h>
 #include <semaphore.h>
