@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <thread>
+#include <condition_variable>
 #include <typeinfo>
 #include <mutex>
 #include <cassert>
@@ -34,7 +35,7 @@
     time_t timestamp = time(NULL);\
     struct tm* timeinfo = localtime(&timestamp);\
     strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", timeinfo);\
-    fprintf(stdout, "[%s %s:%d] " format "\n", timebuffer, __FILE__, __LINE__, ##__VA_ARGS__);\
+    fprintf(stdout, "[%lu %s %s:%d] " format "\n", pthread_self(), timebuffer, __FILE__, __LINE__, ##__VA_ARGS__);\
 }while(0)
 
 // 将等级和日志打印封装起来
@@ -565,7 +566,7 @@ public:
             ELOG("epoll create error!!");
             abort();
         }
-        DLOG("epoll create succuess, epollfd is: %d", _epollfd);
+        // DLOG("epoll create succuess, epollfd is: %d", _epollfd);
     }
 
     ~Poller() 
@@ -748,7 +749,7 @@ private:
         newtimer.it_interval.tv_nsec = 0;
         timerfd_settime(timerfd, 0, &newtimer, nullptr);
 
-        DLOG("create_timerfd success, the timerfd is %d", timerfd);
+        // DLOG("create_timerfd success, the timerfd is %d", timerfd);
         return timerfd;
     }
 
@@ -950,7 +951,7 @@ private:
             ELOG("create_eventfd error, 原因：%s", strerror(errno));
             abort();
         }
-        DLOG("create_eventfd success, the eventfd is %d", efd);
+        // DLOG("create_eventfd success, the eventfd is %d", efd);
         return efd;
     }
 
@@ -1447,6 +1448,92 @@ private:
         bool ret = _socket.create_server(port);
         assert(ret == true); // 直接断言，如果创建监听套接字失败了，那么其它的都没得说！
         return _socket.get_fd();
+    }
+};
+
+class LoopThread
+{
+private:    
+    EventLoop* _loop; // 当前EventLoop的指针，需要在线程内实例化
+    std::thread _td;  // 当前EventLoop对应的线程
+
+    /* 需要有互斥锁和条件变量来防止_loop还为空的时候被获取 */
+    std::mutex _mtx;             // 互斥锁
+    std::condition_variable _cv; // 条件变量
+public:
+    // 构造函数，创建线程，设定线程的入口函数
+    LoopThread()
+        : _td(std::thread(&LoopThread::thread_entry, this))
+        , _loop(nullptr)
+    {}
+
+    // 返回当前线程关联的EventLoop指针
+    EventLoop* get_loop() 
+    {
+        // 需要不为空才能返回，否则阻塞住直到不为空
+        std::unique_lock<std::mutex> lock(_mtx);
+        while(_loop == nullptr) 
+            _cv.wait(lock);
+        return _loop;
+    }
+private:
+    // 线程入口函数，负责实例化关联的EventLoop
+    void thread_entry()
+    {
+        EventLoop tmp; // 使用临时对象而不是new的话就不用考虑指针何时去释放的问题了
+        {
+            // 需要进行加锁，并且创建完毕后唤醒get_loop()
+            std::unique_lock<std::mutex> lock(_mtx);
+            _loop = &tmp;
+            _cv.notify_all();
+        }
+
+        // 启动EventLoop进行事件监控
+        tmp.start();
+    }
+};
+
+class LoopThreadPool
+{
+private:
+    EventLoop* _mainthread; // 主线程：用于监听新连接（或者没有从属线程的话，也将连接交给主线程处理）
+    
+    int _nums_of_subthread;               // 当前从属线程的数量
+    std::vector<LoopThread*> _subthreads; // 存放从属线程的数组
+    std::vector<EventLoop*> _loops;       // 存放从属线程各自绑定的EventLoop*
+
+    int _next_loop_id; // 指定下一个轮转到也就是要分配的EventLoop*的下标
+public:
+    LoopThreadPool(EventLoop* mainthread)
+        : _mainthread(mainthread)
+        , _nums_of_subthread(0)
+        , _next_loop_id(0)
+    {}
+
+    // 设置从属线程的数量
+    void set_nums_of_subthread(int num) { _nums_of_subthread = num; }
+
+    // 初始化线程数组和_loops数组
+    void initialize()
+    {
+        for(int i = 0; i < _nums_of_subthread; ++i)
+        {
+            _subthreads.push_back(new LoopThread());
+            _loops.push_back(_subthreads[i]->get_loop());
+        }
+    }
+
+    // 返回一个EventLoop*，表示分配到该EventLoop*对应的线程上
+    EventLoop* allocate_thread()
+    {
+        // 如果没有从属线程的话，则直接分配到主线程中处理即可
+        if(_nums_of_subthread == 0)
+            return _mainthread;
+        
+        // 否则的话返回当前轮到的从属EventLoop线程即可
+        EventLoop* ret = _loops[_next_loop_id];
+        _next_loop_id = (_next_loop_id + 1) % _nums_of_subthread;
+        return ret;
     }
 };
 
