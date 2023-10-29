@@ -3,7 +3,7 @@ all: client server
 
 client : tcp_client.cc
 	g++ -o $@ $^ -std=c++11
-server : tcp_server.cc
+server : server.cc
 	g++ -g -o $@ $^ -std=c++11 -lpthread
 
 clean:

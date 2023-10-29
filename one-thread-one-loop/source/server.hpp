@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/eventfd.h>
@@ -1496,7 +1497,7 @@ private:
 class LoopThreadPool
 {
 private:
-    EventLoop* _mainthread; // 主线程：用于监听新连接（或者没有从属线程的话，也将连接交给主线程处理）
+    EventLoop* _mainloop; // 主线程：用于监听新连接（或者没有从属线程的话，也将连接交给主线程处理）
     
     int _nums_of_subthread;               // 当前从属线程的数量
     std::vector<LoopThread*> _subthreads; // 存放从属线程的数组
@@ -1504,8 +1505,8 @@ private:
 
     int _next_loop_id; // 指定下一个轮转到也就是要分配的EventLoop*的下标
 public:
-    LoopThreadPool(EventLoop* mainthread)
-        : _mainthread(mainthread)
+    LoopThreadPool(EventLoop* mainloop)
+        : _mainloop(mainloop)
         , _nums_of_subthread(0)
         , _next_loop_id(0)
     {}
@@ -1528,7 +1529,7 @@ public:
     {
         // 如果没有从属线程的话，则直接分配到主线程中处理即可
         if(_nums_of_subthread == 0)
-            return _mainthread;
+            return _mainloop;
         
         // 否则的话返回当前轮到的从属EventLoop线程即可
         EventLoop* ret = _loops[_next_loop_id];
@@ -1536,5 +1537,111 @@ public:
         return ret;
     }
 };
+
+class TcpServer
+{
+private:
+    int _timeout;                  // 非活跃连接超时销毁的时间
+    bool _enable_inactive_release; // 是否启动非活跃连接销毁功能，true表示开启，默认为false
+
+    uint16_t _port;      // 服务器端口号
+    EventLoop _mainloop; // 主线程对应的EventLoop对象
+    Acceptor _acceptor;  // 监听套接字管理对象，绑定到主线程上进行事件监控
+
+    LoopThreadPool _pool; // 从属线程池
+
+    uint64_t _next_id;                                     // 管理连接对象的key
+    std::unordered_map<uint64_t, ConnectionPtr> _conn_table; // 管理所有连接的shared_ptr对象
+
+    // 下面是提供给组件使用者设置的回调函数
+    ConnectedCallBack _connected_callback; // 连接建立之后的回调
+    MessageCallBack _message_callback;     // 有消息之后的回调
+    ClosedCallBack _closed_callback;       // 连接关闭之后的回调
+    ArbitraryCallBack _arbitrary_callback; // 任意事件的回调
+public:
+    TcpServer(uint16_t port)
+        : _port(port)
+        , _enable_inactive_release(false)
+        , _acceptor(&_mainloop, _port)
+        , _pool(&_mainloop)
+        , _next_id(0)
+    {
+        // 设置监听套接字的回调处理，然后挂到主线程上
+        _acceptor.set_accept_callback(std::bind(&TcpServer::acceptor_handler, this, std::placeholders::_1));
+        _acceptor.start_listen();
+    }
+
+    // 设置从属线程的数量
+    void set_nums_of_subthread(int num) { _pool.set_nums_of_subthread(num); }
+    
+    // 启动服务器（即打开主线程的事件监控）
+    void start_server() 
+    { 
+        _pool.initialize(); // 先初始化一下从属线程池
+        _mainloop.start(); 
+    }
+
+    // 启动非活跃连接超时销毁功能
+    void enable_inactive_release(int timeout)
+    {
+        _timeout = timeout;
+        _enable_inactive_release = true;
+    }
+
+    // 添加定时任务功能
+    void add_timer(int sec, const func_t& task) { return _mainloop.run_in_thread(std::bind(&TcpServer::add_timer_inloop, this, sec, task)); }
+
+    // 设置对应回调函数的接口
+    void set_connected_callback(const ConnectedCallBack& conn) { _connected_callback = conn; }
+    void set_message_callback(const MessageCallBack& msg) { _message_callback = msg; }
+    void set_closed_callback(const ClosedCallBack& closed) { _closed_callback = closed; }
+    void set_arbitrary_callback(const ArbitraryCallBack& event) { _arbitrary_callback = event; }    
+private:
+    // 添加定时任务功能的实际实现接口
+    void add_timer_inloop(int sec, const func_t& task) { return _mainloop.add_timer(_next_id++, sec, task); }
+
+    // 监听套接字的可读事件处理函数，也就是为新连接构造一个Connection进行管理并进行设置等等
+    void acceptor_handler(int fd)
+    {
+        // 用Connection包装该新链接，其中新连接的EventLoop由线程池模块提供
+        ConnectionPtr cptr(new Connection(_pool.allocate_thread(), _next_id, fd));
+
+        // 设置回调函数
+        cptr->set_connected_callback(_connected_callback);
+        cptr->set_message_callback(_message_callback);
+        cptr->set_closed_callback(_closed_callback);
+        cptr->set_arbitrary_callback(_arbitrary_callback);
+        cptr->set_server_closed_callback(std::bind(&TcpServer::release_connections, this, std::placeholders::_1));
+
+        // 启动非活跃销毁功能，并将连接设置为建立完成状态
+        if(_enable_inactive_release == true)
+            cptr->enable_inactive_release(_timeout);
+        cptr->connecting_to_connceted();
+
+        // 最后别忘了添加到服务器的连接管理表中
+        _conn_table[_next_id++] = cptr;
+    }
+
+    // 从管理Connection的哈希表中移除掉对其的引用，才能正确释放连接
+    void release_connections(const ConnectionPtr& cptr) { return _mainloop.run_in_thread(std::bind(&TcpServer::release_connections_inloop, this, cptr)); }
+
+    // 释放管理连接的实际实现接口
+    void release_connections_inloop(const ConnectionPtr& cptr) { _conn_table.erase(cptr->get_connection_id()); }
+};
+
+// 该类用于构造一个对象的时候进行一些信号的忽略处理，防止因为不必要的信号而导致程序退出
+class NetWork
+{
+public:
+    NetWork()
+    {
+        /* 忽略SIGPIPE信号是防止当进程向一个已经关闭写端的管道写入数据时，内核会向进程发送SIGPIPE信号，
+           或者当进程向一个已经关闭的socket连接写入数据时，内核也会向进程发送SIGPIPE信号。 */
+        DLOG("SIGPIPE is ginored");
+        signal(SIGPIPE, SIG_IGN);
+    }
+};
+
+static NetWork nw; // 实例化一个对象出来，这样子保证让其执行构造函数
 
 #endif
