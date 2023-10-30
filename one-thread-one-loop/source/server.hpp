@@ -1637,7 +1637,7 @@ public:
     {
         /* 忽略SIGPIPE信号是防止当进程向一个已经关闭写端的管道写入数据时，内核会向进程发送SIGPIPE信号，
            或者当进程向一个已经关闭的socket连接写入数据时，内核也会向进程发送SIGPIPE信号。 */
-        DLOG("SIGPIPE is ginored");
+        // DLOG("SIGPIPE is ginored");
         signal(SIGPIPE, SIG_IGN);
     }
 };
