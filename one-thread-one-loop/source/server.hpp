@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <thread>
+#include <regex>
 #include <condition_variable>
 #include <typeinfo>
 #include <mutex>
@@ -15,6 +16,7 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/eventfd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
