@@ -527,3 +527,259 @@ public:
         return get_header_val("Connection") == "close";
     }
 };
+
+// RECV_LINE：接收请求行（当前处于接收并处理请求行的阶段）
+// RECV_HEADER：接收请求头部（表示请求头部的接收还没有完毕）
+// RECV_BODY：接收正文（表示还有正文没有接收完毕）
+// RECV_DONED：接收数据完毕（这是一个接收完毕，可以对请求进行处理的阶段）
+// RECV_ERROR：接收处理请求出错
+typedef enum {
+    RECV_LINE,      
+    RECV_HEADER,    
+    RECV_BODY,      
+    RECV_DONED,     
+    RECV_ERROR      
+} HTTP_RECV_STATUS;
+
+const int MAX_LINE_SIZE = 8192;
+class HttpContext
+{
+private:
+    int _response_status;          // 响应状态码
+    HTTP_RECV_STATUS _recv_status; // 当前接收的阶段
+    HttpRequest _request;          // 存放已经接收并处理的请求信息
+public:
+    HttpContext()
+        : _response_status(200)
+        , _recv_status(RECV_LINE)
+    {}
+
+    // 获取响应状态码
+    int get_response_status() { return _response_status; }
+    
+    // 获取接收解析状态
+    HTTP_RECV_STATUS get_recv_status() { return _recv_status; }
+
+    // 获取解析完毕的请求信息
+    HttpRequest& get_request() { return _request; }
+
+    // 接收并处理请求数据
+    void recv_and_handle_request(Buffer* buffer)
+    {
+        // 不同的状态，做不同的事情，但是这里不能break，因为处理完请求行后，应该立即处理头部，而不是退出等新数据
+        switch(_recv_status)
+        {
+            case RECV_LINE: recv_line(buffer);
+            case RECV_HEADER: recv_header(buffer);
+            case RECV_BODY: recv_body(buffer);
+        }
+    }
+private:
+    // 接收请求行
+    bool recv_line(Buffer* buffer)
+    {
+        // 1. 接收请求行之前，判断当前是否处于接收请求行的阶段
+        if(_recv_status != RECV_LINE)
+            return false;
+
+        // 2. 获取缓冲区中的一行
+        std::string line = buffer->get_line();
+
+        // 3. 判断两种特殊情况：请求行没有读取完毕、请求行超过服务器规定（一般是8K）
+        if(line.size() == 0)
+        {
+            /* 如果此时请求行没有读取完毕，而且缓冲区中的数据是超过MAX_LINE_SIZE的，
+               说明数据很长都不足一行，这已经是有问题的了，那么请求行肯定是超过MAX_LINE_SIZE了 */
+            if(buffer->get_sizeof_read() > MAX_LINE_SIZE)
+            {
+                _recv_status = RECV_ERROR;
+                _response_status = 414; // 414表示URI太长了
+                return false;
+            }
+            return true; // 返回true表示没有读取完毕，不算错误
+        }
+
+        if(line.size() > MAX_LINE_SIZE)
+        {
+            _recv_status = RECV_ERROR;
+            _response_status = 414; // 414表示URI太长了
+            return false;
+        }
+
+        // 4. 获取成功的话则调用parse_line()开始解析请求行（其内部会解析完将各字段放到请求模块对象中）
+        bool ret = parse_line(line);
+        if(ret == false)
+            return false;
+        
+        // 5. 最后别忘了要移动buffer的读指针，还要将所处状态改为接收头部状态
+        buffer->push_reader_back(line.size());
+        _recv_status = RECV_HEADER;
+        return true;
+    }
+
+    // 解析请求行（内部会解析完将各字段放到请求模块对象中）
+    bool parse_line(const std::string& line)
+    {
+        // (GET|POST|HEAD|PUT|DELETE)   表示匹配并提取其中任意一个字符串
+        // [^?]*                        [^?] 匹配非问号字符，后边的*表示 0次或多次
+        // \\?(.*)                      \\? 表示原始的 ? 字符，(.*)表示提取 ? 之后的任意字符 0 次或多次，直到遇到空格
+        // (?:\\?(.*))?                 (?: ...) 表示匹配某个格式字符串，但是不提取，所以就是表示匹配了上一行注释 0 次或 1 次，并且不获取该内容
+        // HTTP/1\\.[01]                表示匹配以 HTTP/1. 开始，后边有个 0 或 1 的字符串
+        // (?:\n|\r\n)?                 (?: ...) 表示匹配某个格式字符串，但是不提取，而最后的 ? 表示的是匹配前边的表达式 0 次或 1 次
+        std::regex rule("(GET|POST|HEAD|PUT|DELETE) ([^?]*)(?:\\?(.*))? (HTTP/1\\.[01])(?:\n|\r\n)?"); // 正则表达式规则
+        std::smatch matches; // 结果集
+
+        std::regex_match(line, matches, rule); // 进行表达式匹配，将匹配结果放到结果集中
+
+        // 举个例子，此时"GET /liren/login?user=xiaoming&pass=123123 HTTP/1.1\r\n" 的结果如下所示：
+        //      0 : GET /liren/login?user=xiaoming&pass=123123 HTTP/1.1
+        //      1 : GET
+        //      2 : /liren/login
+        //      3 : user=xiaoming&pass=123123
+        //      4 : HTTP/1.1
+
+        // 1. 请求方法的获取
+        _request._method = matches[1];
+
+        // 2. 资源路径的获取，需要对其进行url解码，但是不需要将+转化为空格
+        _request._path = Util::url_decode(matches[2], false);
+
+        // 3. 协议版本的获取
+        _request._version = matches[4];
+
+        // 4.1 查询字符串的获取，先获取每个key=val的结构也就是键值对组合
+        std::vector<std::string> strs;
+        int size = Util::split(matches[3], "&", &strs);
+
+        // 4.2 然后再分解获取每个key和val
+        for(int i = 0; i < size; ++i)
+        {
+            std::vector<std::string> key_val;
+            int n = Util::split(strs[i], "=", &key_val);
+
+            // 此时如果只有key没有val的话则是错误的
+            if(n == 1)
+            {
+                _recv_status = RECV_ERROR;
+                _response_status = 400;
+                return false;
+            }
+
+            // 正确获取的话则对key和val先进行url解析，此时就需要将+转化为空格，然后将它们设置进请求对象中保存
+            std::string key = Util::url_decode(key_val[0], true);
+            std::string val = Util::url_decode(key_val[1], true);
+            _request.set_queryString(key, val);
+        }
+        return true;
+    }
+
+    // 接收头部（大部分和上面的接收请求行是重合的，注意不同的地方即可）
+    bool recv_header(Buffer* buffer)
+    {
+        // 1. 接收头部之前，判断当前是否处于接收头部的阶段
+        if(_recv_status != RECV_HEADER)
+            return false;
+        
+        // 因为头部有多行，所以要用死循环
+        while(true)
+        {
+            // 2. 获取缓冲区中的一行
+            std::string line = buffer->get_line();
+
+            // 3. 判断两种特殊情况：一行没有读取完毕、请求行超过服务器规定（一般是8K）
+            if(line.size() == 0)
+            {
+                /* 如果此时请求行没有读取完毕，而且缓冲区中的数据是超过MAX_LINE_SIZE的，
+                说明数据很长都不足一行，这已经是有问题的了，那么请求行肯定是超过MAX_LINE_SIZE了 */
+                if(buffer->get_sizeof_read() > MAX_LINE_SIZE)
+                {
+                    _recv_status = RECV_ERROR;
+                    _response_status = 414; // 表示一行数据太多
+                    return false;
+                }
+                return true; // 返回true表示没有读取完毕，不算错误
+            }
+
+            if(line.size() > MAX_LINE_SIZE)
+            {
+                _recv_status = RECV_ERROR;
+                _response_status = 414; // 表示一行数据太多
+                return false;
+            }
+
+            // 4. 获取成功的话则调用parse_line()开始解析请求行（其内部会解析完将各字段放到请求模块对象中）
+            bool ret = parse_header(line);
+            if(ret == false)
+                return false;
+            
+            // 5. 别忘了要移动buffer的读指针
+            buffer->push_reader_back(line.size());
+
+            // 6. 如果读的头部是\n或者\r\n的话，表示头部接收结束了，则将所处状态改为接收正文状态，然后退出循环，
+            if(line == "\r\n" || line == "\n")
+            {
+                _recv_status = RECV_BODY;
+                return true;
+            }
+        }
+    }
+
+    // 解析头部
+    bool parse_header(std::string& line)
+    {
+        // 1. 如果读的头部是\n或者\r\n的话，表示头部接收结束了，直接返回即可
+        if(line == "\r\n" || line == "\n")
+            return true;
+        
+        // 2. 末尾是\n或者\r换行则要去掉
+        if (line.back() == '\n') line.pop_back(); 
+        if (line.back() == '\r') line.pop_back(); 
+
+        // 3. 根据key: val的格式，进行分割获取头部的key和val
+        std::vector<std::string> key_val;
+        int size = Util::split(line, ": ", &key_val);
+        if(size <= 1)
+        {
+            _recv_status = RECV_ERROR;
+            _response_status = 400; 
+            return false;
+        }
+        
+        // 4. 将key和val设置进请求对象中保存
+        _request.set_header(key_val[0], key_val[1]);
+        return true;
+    }
+
+    // 接收正文
+    bool recv_body(Buffer* buffer)
+    {
+        // 1. 接收正文之前，判断当前是否处于接收正文的阶段
+        if(_recv_status != RECV_HEADER)
+            return false;
+        
+        // 2. 从头部中获取正文长度
+        size_t size = _request.get_body_length();
+        if(size == 0)
+        {
+            // 没有正文，则请求解析完毕
+            _recv_status = RECV_DONED;
+            return true;
+        }
+
+        // 3. 计算还需要接收的正文长度（因为可能前面因为数据只接收了部分）
+        size_t real_length = size - _request._body.size();
+        if(buffer->get_sizeof_read() >= real_length)
+        {
+            // 3.1 若缓冲区中的数据包含了当前请求的所有正文，则取出所需的数据，然后设置状态为接收完毕即可
+            _request._body.append(buffer->start_of_read(), real_length);
+            buffer->push_reader_back(real_length);
+            _recv_status = RECV_DONED;
+            return true;
+        }
+        
+        // 3.2 若缓冲区中的数据无法满足当前正文的需要，也就是数据不足，则取出数据，然后等待新数据到来，不用修改接收状态
+        _request._body.append(buffer->start_of_read(), buffer->get_sizeof_read());
+        buffer->push_reader_back(buffer->get_sizeof_read());
+        return true;
+    }
+};
