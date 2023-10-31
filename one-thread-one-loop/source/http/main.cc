@@ -2,8 +2,7 @@
 
 int main()
 {
-    std::cout << Util::is_path_valid("/../server.hpp") << std::endl;
-    std::cout << Util::is_path_valid("/img/../main.cc") << std::endl;
-    std::cout << Util::is_path_valid("/img/../../main.cc") << std::endl;
+    HttpRequest req;
+    HttpResponse resp;
     return 0;
 }

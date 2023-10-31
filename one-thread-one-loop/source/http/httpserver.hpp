@@ -455,3 +455,75 @@ public:
         _matches.swap(tmp);
     }
 };
+
+class HttpResponse
+{
+public:
+    int _status;                                          // 状态码
+    std::string _body;                                    // 响应正文
+    std::unordered_map<std::string, std::string> _header; // 头部字段
+
+    bool _is_redirect;          // 是否重定向的标志
+    std::string _redirect_path; // 重定向路径
+public:
+    HttpResponse(int status = 200)
+        : _is_redirect(false)
+        , _status(status)
+    {}
+
+    // 成员变量清理接口
+    void reset()
+    {
+        _status = 200;
+        _is_redirect = false;
+        _body.clear();
+        _header.clear();
+        _redirect_path.clear();
+    }
+
+    // 插入头部字段
+    void set_header(const std::string& key, const std::string& val) {  _header[key] = val; }
+
+    // 判断是否存在指定头部字段
+    bool has_header(const std::string& key)
+    {
+        auto it = _header.find(key);
+        if(it == _header.end())
+            return false;
+        return true;
+    }
+
+    // 获取指定头部字段的值
+    std::string get_header_val(const std::string& key)
+    {
+        auto it = _header.find(key);
+        if(it == _header.end())
+            return "";
+        return it->second;
+    }
+
+    // 设置响应正文
+    void set_content(const std::string& body, const std::string& type = "text/html")
+    {
+        _body = body;
+        set_header("Content-Type", type);
+    }
+
+    // 设置重定向信息
+    void set_redirect(const std::string& url, int status = 302)
+    {
+        _status = status;
+        _is_redirect = true;
+        _redirect_path = url;
+    }
+
+    // 判断是否为短连接
+    bool is_short_connection()
+    {
+        // 通过头部字段中的Connection来判断，如果是close表示短连接，keep-alive表示长连接
+        bool ret = has_header("Connection");
+        if(ret == false)
+            return 0;
+        return get_header_val("Connection") == "close";
+    }
+};
