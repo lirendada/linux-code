@@ -574,6 +574,13 @@ public:
             case RECV_BODY: recv_body(buffer);
         }
     }
+
+    void reset()
+    {
+        _response_status = 200;
+        _recv_status = RECV_LINE;
+        _request.reset();
+    }
 private:
     // 接收请求行
     bool recv_line(Buffer* buffer)
@@ -782,4 +789,55 @@ private:
         buffer->push_reader_back(buffer->get_sizeof_read());
         return true;
     }
+};
+
+using handle_t = std::function<void(const HttpRequest& req, HttpResponse*)>;
+class HttpServer
+{
+private:
+    TcpServer _server;             // 高性能服务器对象
+    std::string _static_directory; // 静态资源根目录
+
+    std::unordered_map<std::regex, handle_t> get_route;    // get方法的执行函数路由表
+    std::unordered_map<std::regex, handle_t> post_route;   // post方法的执行函数路由表
+    std::unordered_map<std::regex, handle_t> put_route;    // put方法的执行函数路由表
+    std::unordered_map<std::regex, handle_t> delete_route; // delete方法的执行函数路由表
+public:
+    HttpServer();
+
+    // 添加请求-处理函数的映射信息接口
+    void add_get(const std::string& pattern, const handle_t& handler);
+    void add_post(const std::string& pattern, const handle_t& handler);
+    void add_put(const std::string& pattern, const handle_t& handler);
+    void add_delete(const std::string& pattern, const handle_t& handler);
+
+    // 设置静态资源根目录接口
+    void set_static_directory(const std::string& path);
+
+    // 设置是否启动非活跃连接超时关闭接口
+    void enable_inactive_release(int timeout);
+
+    // 设置线程池中线程数量接口
+    void set_nums_of_thread(int count);
+
+    // 启动服务器接口
+    void start_httpserver();
+private:
+    // 连接建立完成后的回调处理
+    void connected_handle();
+
+    // 收到消息后的回调处理
+    void message_handle();
+
+    // 路由查找函数
+    void route();
+
+    // 静态资源请求处理函数
+    void static_resource_request();
+
+    // 功能性请求处理函数
+    void functional_request();
+
+    // 组织协议格式进行返回的函数
+    void organize_and_response();
 };
