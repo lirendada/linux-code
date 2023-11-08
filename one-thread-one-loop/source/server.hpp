@@ -1205,7 +1205,7 @@ private:
     }
     
     // 这个接口才是实际的释放连接接口
-    void release()
+    void release_inloop()
     {
         // 1. 修改连接状态为连接关闭状态
         _status = DISCONNECTED;
@@ -1253,9 +1253,8 @@ private:
         // 1. 接收socket的数据
         char buffer[65536] = { 0 };
         ssize_t ret = _socket.recv_with_noblock(buffer, 65535); // 注意要使用非阻塞接口，不然缓冲区没数据的话会阻塞
-        if(ret < 0){
+        if(ret < 0)
             return shutdown_inloop(); // 读取错误的话不能直接关闭连接，而是要判断是否有发送数据需要处理，此时在shutdown_inloop()函数中会去开启写事件监控
-        }
 
         // 2. 将数据写入接收缓冲区
         _inbuffer.write_data_andMove(buffer, ret);
@@ -1356,6 +1355,9 @@ public:
 
     // 提供给组件使用者使用的关闭连接接口（并不是真的直接关闭，而是先判断是否有数据没处理完等情况）
     void shutdown() { return _loop->run_in_thread(std::bind(&Connection::shutdown_inloop, this)); }
+
+    // 释放连接接口
+    void release() { return _loop->run_in_thread(std::bind(&Connection::release_inloop, this)); }
 
     // 启动非活跃销毁功能，并定义多长时间没通信就是非活跃，添加定时任务
     void enable_inactive_release(int sec) { return _loop->run_in_thread(std::bind(&Connection::enable_inactive_release_inloop, this, sec)); }

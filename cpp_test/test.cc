@@ -261,7 +261,7 @@
 #include <semaphore.h>
 #include <unistd.h>
 
-char buffer[200];
+const int Buffer_Size = 200;
 int read_index;
 int write_index;
 sem_t producer_lock;
@@ -271,7 +271,7 @@ sem_t csem; // 表示已有的数据的信号量
 
 void* consumer(void* args)
 {
-    char* b = (char*)args;
+    char* buffer = (char*)args;
 	std::cout << pthread_self() << "号消费者线程启动" << std::endl;
     while(true)
     {
@@ -280,19 +280,21 @@ void* consumer(void* args)
 
         std::cout << pthread_self() << "号消费者读取数据开始，内容为：";
 		while(buffer[read_index] != '\0')
-			printf("%c", buffer[read_index++]);
+		{
+            printf("%c", buffer[read_index++]);
+            read_index %= Buffer_Size;
+        }
 		read_index++;
 		std::cout << std::endl;
 
 		sem_post(&consumer_lock); 
 		sem_post(&psem); 
-		sleep(1);
     }
 }
 
 void* producer(void* args)
 {
-    char* b = (char*)args;
+    char* buffer = (char*)args;
 	std::cout << pthread_self() << "号生产者线程启动" << std::endl;
     while(true)
     {
@@ -303,6 +305,7 @@ void* producer(void* args)
 		for(int i = 0; i < sizeof(tmp); ++i)
 		{
 			buffer[write_index++] = tmp[i];
+            write_index %= Buffer_Size;
 			if(tmp[i] == '\0')
 				break;
 		}
@@ -310,11 +313,13 @@ void* producer(void* args)
 
 		sem_post(&producer_lock);
 		sem_post(&csem); 
+        sleep(1);
     }
 }
 
 int main()
 {
+    char buffer[Buffer_Size];
     pthread_t consume[3];
     pthread_t produce[2];
     sem_init(&producer_lock, 0, 2);

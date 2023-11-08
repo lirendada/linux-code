@@ -1,10 +1,15 @@
-.PHONY:clean client server
-all: client server
+CXX = g++
+TARGET = client5
+OBJ = $(patsubst %.cc, %.o, $(wildcard $(TARGET).cc))
 
-client : tcp_client.cc
-	g++ -o $@ $^ -std=c++11
-server : server.cc
-	g++ -g -o $@ $^ -std=c++11 -lpthread
+CXXFLAGS = -c #-Wall
 
+$(TARGET) : $(OBJ)
+	$(CXX) -o $@ $^ -std=c++11
+
+%.o : %.cc
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+.PHONY:clean
 clean:
-	rm -rf client server
+	rm -f $(OBJ) $(TARGET)
