@@ -5,9 +5,9 @@ int main()
 {
     // 创建客户端套接字
     Socket client_sock;
-    client_sock.create_client(8080, "81.71.97.127");
+    client_sock.create_client(8080, "127.0.0.1");
 
-    std::string str = "put /1234.txt HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
+    std::string str = "put /1234.txt HTTP/1.1\r\nConnection: keep-alive\r\n";
     std::string body;
     Util::read_file("./test.txt", &body);
     str += "Content-Length: " + std::to_string(body.size()) + "\r\n\r\n";

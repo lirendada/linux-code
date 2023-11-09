@@ -1,5 +1,5 @@
 CXX = g++
-TARGET = client5
+TARGET = client2
 OBJ = $(patsubst %.cc, %.o, $(wildcard $(TARGET).cc))
 
 CXXFLAGS = -c #-Wall

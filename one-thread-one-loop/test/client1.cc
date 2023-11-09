@@ -14,7 +14,7 @@ int main()
         char buf[1024] = { 0 };
         client_sock.Recv(buf, sizeof(buf) - 1);
         DLOG("%s", buf);
-        sleep(1);
+        sleep(15);
     }
     return 0;
 }
