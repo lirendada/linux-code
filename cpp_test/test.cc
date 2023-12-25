@@ -255,89 +255,89 @@
 
 
 
-#include <iostream>
-#include <cstring>
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
+// #include <iostream>
+// #include <cstring>
+// #include <pthread.h>
+// #include <semaphore.h>
+// #include <unistd.h>
 
-const int Buffer_Size = 200;
-int read_index;
-int write_index;
-sem_t producer_lock;
-sem_t consumer_lock;
-sem_t psem; // 表示空闲数据的信号量
-sem_t csem; // 表示已有的数据的信号量
+// const int Buffer_Size = 200;
+// int read_index;
+// int write_index;
+// sem_t producer_lock;
+// sem_t consumer_lock;
+// sem_t psem; // 表示空闲数据的信号量
+// sem_t csem; // 表示已有的数据的信号量
 
-void* consumer(void* args)
-{
-    char* buffer = (char*)args;
-	std::cout << pthread_self() << "号消费者线程启动" << std::endl;
-    while(true)
-    {
-		sem_wait(&csem); 		  
-		sem_wait(&consumer_lock); 
+// void* consumer(void* args)
+// {
+//     char* buffer = (char*)args;
+// 	std::cout << pthread_self() << "号消费者线程启动" << std::endl;
+//     while(true)
+//     {
+// 		sem_wait(&csem); 		  
+// 		sem_wait(&consumer_lock); 
 
-        std::cout << pthread_self() << "号消费者读取数据开始，内容为：";
-		while(buffer[read_index] != '\0')
-		{
-            printf("%c", buffer[read_index++]);
-            read_index %= Buffer_Size;
-        }
-		read_index++;
-		std::cout << std::endl;
+//         std::cout << pthread_self() << "号消费者读取数据开始，内容为：";
+// 		while(buffer[read_index] != '\0')
+// 		{
+//             printf("%c", buffer[read_index++]);
+//             read_index %= Buffer_Size;
+//         }
+// 		read_index++;
+// 		std::cout << std::endl;
 
-		sem_post(&consumer_lock); 
-		sem_post(&psem); 
-    }
-}
+// 		sem_post(&consumer_lock); 
+// 		sem_post(&psem); 
+//     }
+// }
 
-void* producer(void* args)
-{
-    char* buffer = (char*)args;
-	std::cout << pthread_self() << "号生产者线程启动" << std::endl;
-    while(true)
-    {
-		sem_wait(&psem);		 
-		sem_wait(&producer_lock); 
+// void* producer(void* args)
+// {
+//     char* buffer = (char*)args;
+// 	std::cout << pthread_self() << "号生产者线程启动" << std::endl;
+//     while(true)
+//     {
+// 		sem_wait(&psem);		 
+// 		sem_wait(&producer_lock); 
 
-		char tmp[1024] = "liren";
-		for(int i = 0; i < sizeof(tmp); ++i)
-		{
-			buffer[write_index++] = tmp[i];
-            write_index %= Buffer_Size;
-			if(tmp[i] == '\0')
-				break;
-		}
-        std::cout << pthread_self() << "号生产者写入数据完毕，此时写指针下标：" << write_index << std::endl; 
+// 		char tmp[1024] = "liren";
+// 		for(int i = 0; i < sizeof(tmp); ++i)
+// 		{
+// 			buffer[write_index++] = tmp[i];
+//             write_index %= Buffer_Size;
+// 			if(tmp[i] == '\0')
+// 				break;
+// 		}
+//         std::cout << pthread_self() << "号生产者写入数据完毕，此时写指针下标：" << write_index << std::endl; 
 
-		sem_post(&producer_lock);
-		sem_post(&csem); 
-        sleep(1);
-    }
-}
+// 		sem_post(&producer_lock);
+// 		sem_post(&csem); 
+//         sleep(1);
+//     }
+// }
 
-int main()
-{
-    char buffer[Buffer_Size];
-    pthread_t consume[3];
-    pthread_t produce[2];
-    sem_init(&producer_lock, 0, 2);
-	sem_init(&consumer_lock, 0, 3);
-    sem_init(&psem, 0, 10);
-    sem_init(&csem, 0, 0);
-    for(int i = 0; i < 3; ++i)
-        pthread_create(&consume[i], nullptr, consumer, buffer);
-    for(int i = 0; i < 2; ++i)
-        pthread_create(&produce[i], nullptr, producer, buffer);
+// int main()
+// {
+//     char buffer[Buffer_Size];
+//     pthread_t consume[3];
+//     pthread_t produce[2];
+//     sem_init(&producer_lock, 0, 2);
+// 	sem_init(&consumer_lock, 0, 3);
+//     sem_init(&psem, 0, 10);
+//     sem_init(&csem, 0, 0);
+//     for(int i = 0; i < 3; ++i)
+//         pthread_create(&consume[i], nullptr, consumer, buffer);
+//     for(int i = 0; i < 2; ++i)
+//         pthread_create(&produce[i], nullptr, producer, buffer);
     
-    for(int i = 0; i < 3; ++i)
-        pthread_join(consume[i], nullptr);
-    for(int i = 0; i < 2; ++i)
-        pthread_join(produce[i], nullptr);
-    sem_destroy(&producer_lock);
-    sem_destroy(&consumer_lock);
-    sem_destroy(&psem);
-    sem_destroy(&csem);
-    return 0;
-}
+//     for(int i = 0; i < 3; ++i)
+//         pthread_join(consume[i], nullptr);
+//     for(int i = 0; i < 2; ++i)
+//         pthread_join(produce[i], nullptr);
+//     sem_destroy(&producer_lock);
+//     sem_destroy(&consumer_lock);
+//     sem_destroy(&psem);
+//     sem_destroy(&csem);
+//     return 0;
+// }
