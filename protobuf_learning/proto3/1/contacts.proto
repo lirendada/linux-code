@@ -1,0 +1,12 @@
+syntax = "proto3";
+package contacts1;
+
+import "phone.proto"; // 需要引入Phone所在文件
+
+message PeopleInfo {
+    string name = 1;
+    int32 age = 2;
+    
+    // 若引⼊的⽂件声明了package，则在使⽤该消息类时，需要⽤ “命名空间.消息类型” 格式定义
+    repeated phone.Phone phone = 3; 
+}

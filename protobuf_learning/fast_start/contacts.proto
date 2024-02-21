@@ -1,0 +1,12 @@
+// 非注释的首行：声明proto的语法版本
+syntax = "proto3";
+
+// 指定对应的包名，防止冲突
+package contacts;
+
+// 定义联系人消息（下面的等号其实不是赋值，而是指定标记，实现protobuf的高效率特点）
+message PeopleInfo
+{
+    string name = 1;
+    int32 age = 2;
+}

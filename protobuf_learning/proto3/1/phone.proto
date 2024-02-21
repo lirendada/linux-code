@@ -1,0 +1,6 @@
+syntax = "proto3";
+package phone;
+
+message Phone {
+    string number = 1; 
+}
